@@ -1,1 +1,1 @@
-Copyright (c) X-Power Sistemas.
+Copyright
