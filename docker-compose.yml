@@ -1,0 +1,41 @@
+version: "3.8"
+services:
+  backend:
+    build: ./backend
+    container_name: whaticket-backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      DB_DIALECT: postgres
+      DB_HOST: postgres         # nome do serviço na rede Docker, ajuste se o nome do container do banco for diferente
+      DB_PORT: 5432
+      DB_NAME: whaticket        # nome do banco, já criado
+      DB_USER: postgres         # usuário padrão, ajuste conforme sua configuração
+      DB_PASS: efe487b6a861100fb704ad9f5c160cb8 # senha igual à do seu banco
+      TZ: America/Sao_Paulo
+    networks:
+      - nobreluminarias
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    container_name: whaticket-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - nobreluminarias
+    volumes:
+      - ./frontend:/app
+
+networks:
+  nobreluminarias:
+    external: true
+
