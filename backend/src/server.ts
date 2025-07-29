@@ -1,6 +1,13 @@
 import 'dotenv/config';
 import gracefulShutdown from "http-graceful-shutdown";
 import app from "./app";
+
+// --- Endpoint de Healthcheck ---
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
+// --- Fim do Healthcheck ---
+
 import cron from "node-cron";
 import { initIO } from "./libs/socket";
 import logger from "./utils/logger";
@@ -24,7 +31,6 @@ const server = app.listen(process.env.PORT, async () => {
   });
 
   Promise.all(allPromises).then(async () => {
-
     await startQueueProcess();
   });
 
@@ -38,7 +44,6 @@ const server = app.listen(process.env.PORT, async () => {
 process.on("uncaughtException", err => {
   console.error(`${new Date().toUTCString()} uncaughtException:`, err.message);
   console.error(err.stack);
-  
 });
 
 process.on("unhandledRejection", (reason, p) => {
@@ -46,34 +51,26 @@ process.on("unhandledRejection", (reason, p) => {
     `${new Date().toUTCString()} unhandledRejection:`,
     reason,
     p
-  );  
+  );
 });
 
+// Exemplo de como ficariam seus cron jobs, se quiser ativar depois:
 // cron.schedule("* * * * * *", async () => {
-
 //   try {
-//     // console.log("Running a job at 5 minutes at America/Sao_Paulo timezone")
 //     await ScheduledMessagesJob();
 //     await ScheduleMessagesGenerateJob();
-//   }
-//   catch (error) {
+//   } catch (error) {
 //     logger.error(error);
 //   }
-
 // });
 
 // cron.schedule("* * * * * *", async () => {
-
 //   try {
-//     // console.log("Running a job at 01:00 at America/Sao_Paulo timezone")
-//     console.log("Running a job at 2 minutes at America/Sao_Paulo timezone")
 //     await ScheduleMessagesEnvioJob();
 //     await ScheduleMessagesEnvioForaHorarioJob()
-//   }
-//   catch (error) {
+//   } catch (error) {
 //     logger.error(error);
 //   }
-
 // });
 
 initIO(server);
