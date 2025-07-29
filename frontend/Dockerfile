@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS=--max-old-space-size=6144 npm run build
 
 # Etapa de deploy
 FROM nginx:alpine
