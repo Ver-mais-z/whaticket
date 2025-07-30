@@ -9,4 +9,5 @@ RUN NODE_OPTIONS=--max-old-space-size=6144 npm run build
 # Etapa de deploy
 FROM nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
