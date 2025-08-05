@@ -17,15 +17,17 @@ interface Request {
   active?: boolean;
   profilePicUrl?: string;
   extraInfo?: ExtraInfo[];
+  cpfCnpj?: string;
 }
 
 const GetContactService = async ({
   name,
   number,
+  cpfCnpj,
   companyId
 }: Request): Promise<Contact> => {
   const numberExists = await Contact.findOne({
-    where: { number, companyId }
+    where: { number, cpfCnpj, companyId }
   });
 
   if (!numberExists) {

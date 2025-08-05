@@ -69,7 +69,8 @@ const ListContactsService = async ({
             `%${sanitizedSearchParam}%`
           )
         },
-        { number: { [Op.like]: `%${sanitizedSearchParam}%` } }
+        { number: { [Op.like]: `%${sanitizedSearchParam}%` } },
+        { cpfCnpj: { [Op.like]: `%${sanitizedSearchParam}%` } }
       ]
     };
   }
@@ -112,7 +113,7 @@ const ListContactsService = async ({
 
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
-    attributes: ["id", "name", "number", "email", "isGroup", "urlPicture", "active", "companyId", "channel"],
+    attributes: ["id", "name", "number", "cpfCnpj", "email", "isGroup", "urlPicture", "active", "companyId", "channel"],
     limit,
     include: [
       {

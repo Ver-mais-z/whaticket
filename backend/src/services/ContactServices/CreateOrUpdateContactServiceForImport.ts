@@ -15,6 +15,7 @@ interface Request {
   profilePicUrl?: string;
   extraInfo?: ExtraInfo[];
   companyId: number;
+  cpfCnpj?: string;
 }
 
 const CreateOrUpdateContactServiceForImport = async ({

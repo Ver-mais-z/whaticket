@@ -14,6 +14,7 @@ interface Wallet {
   walletId: number | string;
   contactId: number | string;
   companyId: number | string;
+  cpfCnpj?: string;
 }
 interface Request {
   name: string;
@@ -65,6 +66,7 @@ const CreateContactService = async ({
       active,
       extraInfo,
       companyId,
+      cpfCnpj,
       remoteJid
     },
     {

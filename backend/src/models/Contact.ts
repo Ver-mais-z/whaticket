@@ -46,6 +46,10 @@ class Contact extends Model<Contact> {
 
   @Default("")
   @Column
+  cpfCnpj: string;
+
+  @Default("")
+  @Column
   profilePicUrl: string;
 
   @Default(false)
@@ -112,9 +116,9 @@ class Contact extends Model<Contact> {
   @Column
   get urlPicture(): string | null {
     if (this.getDataValue("urlPicture")) {
-      
+
       return this.getDataValue("urlPicture") === 'nopicture.png' ?   `${process.env.FRONTEND_URL}/nopicture.png` :
-      `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}` 
+      `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}`
 
     }
     return null;

@@ -16,10 +16,11 @@ const NumberSimpleListService = async ({ number, companyId }: SearchContactParam
 
   if (number) {
     options.where = {
-      number: {
-        [Op.like]: `%${number}%`
-      }
-    }
+      [Op.or]: [
+        { number: { [Op.like]: `%${number}%` } },
+        { cpfCnpj: { [Op.like]: `%${number}%` } }
+      ]
+    };
   }
 
   options.where = {

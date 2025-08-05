@@ -19,6 +19,10 @@ export async function ImportContactsService(
     let name = "";
     let number = "";
     let email = "";
+    let cpfCnpj = "";
+    if (has(row, "cpfCnpj") || has(row, "CPF/CNPJ") || has(row, "cpf") || has(row, "CPF")) {
+      cpfCnpj = row["cpfCnpj"] || row["CPF/CNPJ"] || row["cpf"] || row["CPF"];
+    }
 
     if (has(row, "nome") || has(row, "Nome")) {
       name = row["nome"] || row["Nome"];
@@ -43,7 +47,7 @@ export async function ImportContactsService(
       email = row["email"] || row["e-mail"] || row["Email"] || row["E-mail"];
     }
 
-    return { name, number, email, companyId };
+    return { name, number, email, cpfCnpj, companyId };
   });
 
 

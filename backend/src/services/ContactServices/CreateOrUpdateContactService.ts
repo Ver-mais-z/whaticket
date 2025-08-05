@@ -28,6 +28,7 @@ interface Request {
   remoteJid?: string;
   whatsappId?: number;
   wbot?: any;
+  cpfCnpj?: string;
 }
 
 const downloadProfileImage = async ({
@@ -162,6 +163,8 @@ const CreateOrUpdateContactService = async ({
         remoteJid: newRemoteJid,
         profilePicUrl,
         urlPicture: "",
+        cpfCnpj,
+        contact.cpfCnpj = cpfCnpj;
         whatsappId
       });
 
@@ -227,13 +230,13 @@ const CreateOrUpdateContactService = async ({
           contact
         });
     } else {
-      
+
       io.of(String(companyId))
         .emit(`company-${companyId}-contact`, {
           action: "update",
           contact
         });
-        
+
     }
 
     return contact;
