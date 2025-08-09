@@ -793,7 +793,8 @@ const downloadMedia = async (msg: proto.IWebMessageInfo, isImported: Date = null
 const verifyContact = async (
   msgContact: IMe,
   wbot: Session,
-  companyId: number
+  companyId: number,
+  userId: number = null
 ): Promise<Contact> => {
   let profilePicUrl: string = "";
   // try {
@@ -4111,7 +4112,7 @@ const handleMessage = async (
         id: grupoMeta.id,
         name: grupoMeta.subject
       };
-      groupContact = await verifyContact(msgGroupContact, wbot, companyId);
+      groupContact = await verifyContact(msgGroupContact, wbot, companyId, userId);
     }
 
     const contact = await verifyContact(msgContact, wbot, companyId);

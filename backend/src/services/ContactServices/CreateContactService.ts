@@ -15,6 +15,7 @@ interface Wallet {
   contactId: number | string;
   companyId: number | string;
 }
+
 interface Request {
   name: string;
   number: string;
@@ -26,55 +27,123 @@ interface Request {
   extraInfo?: ExtraInfo[];
   remoteJid?: string;
   wallets?: null | number[] | string[];
+  userId?: string | number; // Adicionando o userId
+
+  // Novos campos
+  cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  fantasyName?: string;
+  foundationDate?: Date;
+  creditLimit?: string;
 }
 
 const CreateContactService = async ({
-  name,
-  number,
-  email = "",
-  acceptAudioMessage,
-  active,
-  companyId,
-  extraInfo = [],
-  remoteJid = "",
-  wallets
-}: Request): Promise<Contact> => {
+                                      name,
+                                      number,
+                                      email = "",
+                                      acceptAudioMessage,
+                                      active,
+                                      companyId,
+                                      extraInfo = [],
+                                      remoteJid = "",
+                                      userId,
+                                      wallets,
 
+                                      // Novos campos
+                                      cpfCnpj,
+                                      representativeCode,
+                                      city,
+                                      instagram,
+                                      situation,
+                                      fantasyName,
+                                      foundationDate,
+                                      creditLimit
+                                    }: Request): Promise<Contact> => {
   const numberExists = await Contact.findOne({
     where: { number, companyId }
   });
-  if (numberExists) {
 
+  if (numberExists) {
     throw new AppError("ERR_DUPLICATED_CONTACT");
   }
 
-  const settings = await CompaniesSettings.findOne({
-    where: {
-      companyId
+  // Validação de CPF/CNPJ
+  if (cpfCnpj) {
+    const cleanDoc = cpfCnpj.replace(/\D/g, '');
+    if (![11, 14].includes(cleanDoc.length)) {
+      throw new AppError("CPF/CNPJ inválido");
     }
-  })
+  }
+
+  const settings = await CompaniesSettings.findOne({
+    where: { companyId }
+  });
 
   const { acceptAudioMessageContact } = settings;
 
-  const contact = await Contact.create(
-    {
-      name,
-      number,
-      email,
-      acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
-      active,
-      extraInfo,
-      companyId,
-      remoteJid
-    },
-    {
-      include: ["extraInfo",
-        {
-          association: "wallets",
-          attributes: ["id", "name"]
-        }]
-    }
-  );
+  // Função auxiliar para converter strings vazias em null
+  const emptyToNull = (value: any) => {
+    if (value === '' || value === undefined) return null;
+    return value;
+  };
+
+  // Definindo a interface para o contactData incluindo o userId como opcional
+  const contactData: {
+    name: string;
+    number: string;
+    email: string | null;
+    acceptAudioMessage: boolean;
+    active: boolean;
+    extraInfo: ExtraInfo[];
+    companyId: number;
+    remoteJid: string;
+    cpfCnpj: string | null;
+    representativeCode: string | null;
+    city: string | null;
+    instagram: string | null;
+    situation: string;
+    fantasyName: string | null;
+    foundationDate: Date | null;
+    creditLimit: string | null;
+    userId?: number | string;
+  } = {
+    name: name || '',
+    number: number || '',
+    email: emptyToNull(email),
+    acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
+    active: active !== undefined ? active : true,
+    extraInfo: extraInfo || [],
+    companyId,
+    remoteJid: remoteJid || '',
+
+    // Novos campos com tratamento para valores vazios
+    cpfCnpj: emptyToNull(cpfCnpj),
+    representativeCode: emptyToNull(representativeCode),
+    city: emptyToNull(city),
+    instagram: emptyToNull(instagram),
+    situation: situation || 'Ativo',
+    fantasyName: emptyToNull(fantasyName),
+    foundationDate: foundationDate ? new Date(foundationDate) : null,
+    creditLimit: emptyToNull(creditLimit),
+  };
+
+  // Apenas adiciona o userId se ele for fornecido
+  if (userId) {
+    contactData.userId = userId;
+  }
+
+  const contact = await Contact.create(contactData, {
+    include: [
+      "extraInfo",
+      {
+        association: "wallets",
+        attributes: ["id", "name"]
+      }
+    ]
+  });
 
   if (wallets) {
     await ContactWallet.destroy({
@@ -96,8 +165,8 @@ const CreateContactService = async ({
 
     await ContactWallet.bulkCreate(contactWallets);
   }
-  return contact;
 
+  return contact;
 };
 
 export default CreateContactService;

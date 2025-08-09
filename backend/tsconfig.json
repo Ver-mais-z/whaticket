@@ -9,7 +9,18 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/@types"
+    ],
+    "types": [
+      "node",
+      "express"
+    ],
   },
-  "exclude": ["public"]
+  "include": ["src/**/*","src/@types/**/*"],
+  "exclude": ["node_modules", "public"]
 }

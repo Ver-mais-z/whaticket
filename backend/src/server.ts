@@ -1,3 +1,4 @@
+/// <reference path="./@types/express.d.ts" />
 import 'dotenv/config';
 import gracefulShutdown from "http-graceful-shutdown";
 import app from "./app";

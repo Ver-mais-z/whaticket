@@ -8,6 +8,7 @@ interface ExtraInfo {
   name: string;
   value: string;
 }
+
 interface Wallet {
   walletId: number | string;
   contactId: number | string;
@@ -24,24 +25,72 @@ interface ContactData {
   disableBot?: boolean;
   remoteJid?: string;
   wallets?: null | number[] | string[];
+
+  // Novos campos
+  cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  fantasyName?: string;
+  foundationDate?: Date;
+  creditLimit?: string;
 }
 
 interface Request {
   contactData: ContactData;
   contactId: string;
   companyId: number;
+  userId?: number;
 }
 
 const UpdateContactService = async ({
-  contactData,
-  contactId,
-  companyId
-}: Request): Promise<Contact> => {
-  const { email, name, number, extraInfo, acceptAudioMessage, active, disableBot, remoteJid, wallets } = contactData;
+                                      contactData,
+                                      contactId,
+                                      companyId,
+                                      userId
+                                    }: Request): Promise<Contact> => {
+  const {
+    email,
+    name,
+    number,
+    extraInfo,
+    acceptAudioMessage,
+    active,
+    disableBot,
+    remoteJid,
+    wallets,
+    // Novos campos
+    cpfCnpj,
+    representativeCode,
+    city,
+    instagram,
+    situation,
+    fantasyName,
+    foundationDate,
+    creditLimit
+  } = contactData;
+
+  const sanitizedCreditLimit = creditLimit !== undefined ? creditLimit : null;
+
+  // Validação de CPF/CNPJ
+  if (cpfCnpj) {
+    const cleanDoc = cpfCnpj.replace(/\D/g, '');
+    if (![11, 14].includes(cleanDoc.length)) {
+      throw new AppError("CPF/CNPJ inválido");
+    }
+  }
 
   const contact = await Contact.findOne({
     where: { id: contactId },
-    attributes: ["id", "name", "number", "channel", "email", "companyId", "acceptAudioMessage", "active", "profilePicUrl", "remoteJid", "urlPicture"],
+    attributes: [
+      "id", "name", "number", "channel", "email", "companyId",
+      "acceptAudioMessage", "active", "profilePicUrl", "remoteJid",
+      "urlPicture",
+      // Adicionar novos campos aos atributos
+      "cpfCnpj", "representativeCode", "city", "instagram",
+      "situation", "fantasyName", "foundationDate", "creditLimit"
+    ],
     include: ["extraInfo", "tags",
       {
         association: "wallets",
@@ -96,18 +145,48 @@ const UpdateContactService = async ({
     await ContactWallet.bulkCreate(contactWallets);
   }
 
-  await contact.update({
-    name,
-    number,
-    email,
-    acceptAudioMessage,
-    active,
-    disableBot,
-    remoteJid
-  });
+  // Função auxiliar para converter strings vazias em null
+  const emptyToNull = (value: any) => {
+    if (value === '' || value === undefined) return null;
+    return value;
+  };
+
+  const updateData: any = {
+    name: name !== undefined ? name : contact.name,
+    number: number !== undefined ? number : contact.number,
+    email: email !== undefined ? emptyToNull(email) : contact.email,
+    acceptAudioMessage: acceptAudioMessage !== undefined ? acceptAudioMessage : contact.acceptAudioMessage,
+    active: active !== undefined ? active : contact.active,
+    disableBot: disableBot !== undefined ? disableBot : contact.disableBot,
+    remoteJid: remoteJid !== undefined ? remoteJid : contact.remoteJid,
+    
+    // Novos campos com tratamento para valores vazios
+    cpfCnpj: cpfCnpj !== undefined ? emptyToNull(cpfCnpj) : contact.cpfCnpj,
+    representativeCode: representativeCode !== undefined ? emptyToNull(representativeCode) : contact.representativeCode,
+    city: city !== undefined ? emptyToNull(city) : contact.city,
+    instagram: instagram !== undefined ? emptyToNull(instagram) : contact.instagram,
+    situation: situation !== undefined ? situation : contact.situation || 'Ativo',
+    fantasyName: fantasyName !== undefined ? emptyToNull(fantasyName) : contact.fantasyName,
+    foundationDate: foundationDate !== undefined ? (foundationDate ? new Date(foundationDate) : null) : contact.foundationDate,
+    creditLimit: creditLimit !== undefined ? emptyToNull(creditLimit) : contact.creditLimit,
+  };
+
+  // Apenas atualiza o userId se ele for fornecido
+  if (userId) {
+    updateData.userId = userId;
+  }
+
+  await contact.update(updateData);
 
   await contact.reload({
-    attributes: ["id", "name", "number", "channel", "email", "companyId", "acceptAudioMessage", "active", "profilePicUrl", "remoteJid", "urlPicture"],
+    attributes: [
+      "id", "name", "number", "channel", "email", "companyId",
+      "acceptAudioMessage", "active", "profilePicUrl", "remoteJid",
+      "urlPicture",
+      // Adicionar novos campos aos atributos
+      "cpfCnpj", "representativeCode", "city", "instagram",
+      "situation", "fantasyName", "foundationDate", "creditLimit"
+    ],
     include: ["extraInfo", "tags",
       {
         association: "wallets",

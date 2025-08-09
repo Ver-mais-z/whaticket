@@ -3,13 +3,23 @@ import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
 import { head } from "lodash";
 
+// Interface estendida para incluir o usuário autenticado
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    companyId: number;
+    profile: string;
+    username?: string;
+  };
+  files?: any;
+}
+
 import ListContactsService from "../services/ContactServices/ListContactsService";
 import CreateContactService from "../services/ContactServices/CreateContactService";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import UpdateContactService from "../services/ContactServices/UpdateContactService";
 import DeleteContactService from "../services/ContactServices/DeleteContactService";
 import GetContactService from "../services/ContactServices/GetContactService";
-// IMPORTAR NOVO SERVIÇO DE DELEÇÃO EM MASSA
 import BulkDeleteContactsService from "../services/ContactServices/BulkDeleteContactsService";
 
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
@@ -33,7 +43,7 @@ import ToggleDisableBotContactService from "../services/ContactServices/ToggleDi
 import GetDefaultWhatsApp from "../helpers/GetDefaultWhatsApp";
 import Contact from "../models/Contact";
 import Tag from "../models/Tag";
-import ContactTag from "../models/ContactTag"; // <-- AQUI ESTÁ A LINHA CORRIGIDA
+import ContactTag from "../models/ContactTag";
 import logger from "../utils/logger";
 
 type IndexQuery = {
@@ -60,9 +70,15 @@ interface ContactData {
   disableBot?: boolean;
   remoteJid?: string;
   wallets?: null | number[] | string[];
+  cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  fantasyName?: string;
+  foundationDate?: Date;
+  creditLimit?: string;
 }
-
-
 
 export const importXls = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
@@ -173,7 +189,7 @@ export const getContact = async (
   return res.status(200).json(contact);
 };
 
-export const store = async (req: Request, res: Response): Promise<Response> => {
+export const store = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const newContact: ContactData = req.body;
   const newRemoteJid = newContact.number;
@@ -197,7 +213,23 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     name: Yup.string().required(),
     number: Yup.string()
       .required()
-      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed.")
+      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed."),
+
+    cpfCnpj: Yup.string()
+      .nullable()
+      .test('cpf-cnpj', 'CPF/CNPJ inválido', (value) => {
+        if (!value || value === '') return true;
+        const cleanDoc = value.replace(/\D/g, '');
+        return [11, 14].includes(cleanDoc.length);
+      }),
+    creditLimit: Yup.string().nullable(),
+    representativeCode: Yup.string().nullable(),
+    city: Yup.string().nullable(),
+    instagram: Yup.string().nullable(),
+    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso']).nullable(),
+    fantasyName: Yup.string().nullable(),
+    foundationDate: Yup.date().nullable(),
+    email: Yup.string().email().nullable()
   });
 
   try {
@@ -214,11 +246,14 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
    */
   // const profilePicUrl = await GetProfilePicUrl(validNumber.jid, companyId);
 
+  console.log("Creating contact with user:", req.user); // Log para depuração
+
   const contact = await CreateContactService({
     ...newContact,
     number: validNumber,
     // profilePicUrl,
-    companyId
+    companyId,
+    userId: req.user.id // Adicionando o userId ao criar o contato
   });
 
   const io = getIO();
@@ -249,11 +284,25 @@ export const update = async (
   const { contactId } = req.params;
 
   const schema = Yup.object().shape({
-    name: Yup.string(),
-    number: Yup.string().matches(
-      /^\d+$/,
-      "Invalid number format. Only numbers is allowed."
-    )
+    name: Yup.string().nullable(),
+    number: Yup.string()
+      .nullable()
+      .matches(/^\d*$/, "Invalid number format. Only numbers is allowed."),
+    email: Yup.string().email().nullable(),
+    cpfCnpj: Yup.string()
+      .nullable()
+      .test('cpf-cnpj', 'CPF/CNPJ inválido', (value) => {
+        if (!value || value === '') return true;
+        const cleanDoc = value.replace(/\D/g, '');
+        return [11, 14].includes(cleanDoc.length);
+      }),
+    creditLimit: Yup.string().nullable(),
+    representativeCode: Yup.string().nullable(),
+    city: Yup.string().nullable(),
+    instagram: Yup.string().nullable(),
+    situation: Yup.mixed().oneOf(['Ativo', 'Inativo', 'Suspenso']).nullable(),
+    fantasyName: Yup.string().nullable(),
+    foundationDate: Yup.date().nullable()
   });
 
   try {
@@ -274,7 +323,8 @@ export const update = async (
   const contact = await UpdateContactService({
     contactData,
     contactId,
-    companyId
+    companyId,
+    userId: req.user?.id ? parseInt(req.user.id, 10) : undefined
   });
 
   const io = getIO();

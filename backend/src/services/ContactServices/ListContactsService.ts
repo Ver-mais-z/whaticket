@@ -17,7 +17,7 @@ interface Request {
   tagsIds?: number[];
   isGroup?: string;
   userId?: number;
-  profile?: string; // <<-- ALTERAÇÃO 1: Adicionado 'profile' à interface
+  profile?: string;
 }
 
 interface Response {
@@ -27,31 +27,25 @@ interface Response {
 }
 
 const ListContactsService = async ({
-  searchParam = "",
-  pageNumber = "1",
-  companyId,
-  tagsIds,
-  isGroup,
-  userId,
-  profile // <<-- ALTERAÇÃO 2: 'profile' recebido como parâmetro
-}: Request): Promise<Response> => {
-  let whereCondition: Filterable["where"] = {}; // Começa como um objeto vazio
+                                     searchParam = "",
+                                     pageNumber = "1",
+                                     companyId,
+                                     tagsIds,
+                                     isGroup,
+                                     userId,
+                                     profile
+                                   }: Request): Promise<Response> => {
+  let whereCondition: Filterable["where"] = {};
 
-  // <<-- ALTERAÇÃO 3: Lógica principal de restrição de contatos
-  // Se o perfil do usuário não for 'admin', aplicamos o filtro.
   if (profile !== 'admin') {
-    // 1. Busca todos os 'contactId' da tabela de Tickets que pertencem ao 'userId' atual.
     const userTickets = await Ticket.findAll({
       where: { userId },
-      attributes: ["contactId"], // Seleciona apenas a coluna 'contactId' para otimização
-      group: ["contactId"]       // Agrupa para obter IDs de contato únicos
+      attributes: ["contactId"],
+      group: ["contactId"]
     });
 
-    // 2. Mapeia o resultado para um array de números (IDs dos contatos)
     const contactIds = userTickets.map(t => t.contactId);
 
-    // 3. Adiciona a condição à query: o ID do contato DEVE estar na lista de IDs que o usuário atendeu.
-    // Se o usuário não atendeu nenhum ticket, a lista 'contactIds' será vazia e nenhum contato será retornado.
     whereCondition.id = {
       [Op.in]: contactIds
     };
@@ -69,7 +63,11 @@ const ListContactsService = async ({
             `%${sanitizedSearchParam}%`
           )
         },
-        { number: { [Op.like]: `%${sanitizedSearchParam}%` } }
+        { number: { [Op.like]: `%${sanitizedSearchParam}%` } },
+        // Adiciona busca por CPF/CNPJ e outros novos campos
+        { cpfCnpj: { [Op.like]: `%${sanitizedSearchParam}%` } },
+        { representativeCode: { [Op.like]: `%${sanitizedSearchParam}%` } },
+        { fantasyName: { [Op.like]: `%${sanitizedSearchParam}%` } }
       ]
     };
   }
@@ -99,21 +97,37 @@ const ListContactsService = async ({
   }
 
   if (isGroup === "false") {
-    console.log("isGroup", isGroup)
     whereCondition = {
       ...whereCondition,
       isGroup: false
     }
   }
 
-
   const limit = 100;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
-    attributes: ["id", "name", "number", "email", "isGroup", "urlPicture", "active", "companyId", "channel"],
-    limit,
+    attributes: [
+      "id",
+      "name",
+      "number",
+      "email",
+      "isGroup",
+      "urlPicture",
+      "active",
+      "companyId",
+      "channel",
+      // Adiciona novos campos aos atributos
+      "cpfCnpj",
+      "representativeCode",
+      "city",
+      "instagram",
+      "situation",
+      "fantasyName",
+      "foundationDate",
+      "creditLimit"
+    ],
     include: [
       {
         model: Tag,

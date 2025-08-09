@@ -1,0 +1,24 @@
+diff --git a/backend/src/services/WbotServices/wbotMessageListener.ts b/backend/src/services/WbotServices/wbotMessageListener.ts
+index abc1234..def5678 100644
+--- a/backend/src/services/WbotServices/wbotMessageListener.ts
++++ b/backend/src/services/WbotServices/wbotMessageListener.ts
+@@ -819,7 +819,10 @@ const verifyContact = async (
+     contactData.number = msgContact.id.replace("@g.us", "");
+   }
+ 
+-  const contact = await CreateOrUpdateContactService(contactData);
++  const contact = await CreateOrUpdateContactService({
++    ...contactData,
++    userId
++  });
+ 
+   return contact;
+ };
+@@ -4112,7 +4115,7 @@ const handleMessage = async (
+       groupContact = await verifyContact(msgGroupContact, wbot, companyId, userId);
+     }
+ 
+-    const contact = await verifyContact(msgContact, wbot, companyId);
++    const contact = await verifyContact(msgContact, wbot, companyId, userId);
+ 
+     let unreadMessages = 0;

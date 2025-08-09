@@ -28,6 +28,16 @@ interface Request {
   remoteJid?: string;
   whatsappId?: number;
   wbot?: any;
+  userId?: string | number;
+  // Novos campos
+  cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: string;
+  fantasyName?: string;
+  foundationDate?: Date;
+  creditLimit?: string;
 }
 
 const downloadProfileImage = async ({
@@ -67,18 +77,50 @@ const CreateOrUpdateContactService = async ({
   number: rawNumber,
   profilePicUrl,
   isGroup,
-  email = "",
+  email,
   channel = "whatsapp",
   companyId,
   extraInfo = [],
-  remoteJid = "",
+  remoteJid,
   whatsappId,
-  wbot
+  wbot,
+  userId,
+  // Novos campos
+  cpfCnpj,
+  representativeCode,
+  city,
+  instagram,
+  situation,
+  fantasyName,
+  foundationDate,
+  creditLimit
 }: Request): Promise<Contact> => {
   try {
     let createContact = false;
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
+
+    // Garante que creditLimit seja null se não estiver definido
+    const sanitizedCreditLimit = (creditLimit === null || creditLimit === undefined || creditLimit === '') ? null : String(creditLimit);
+    const sanitizedCpfCnpj = cpfCnpj ? cpfCnpj.replace(/[^0-9]/g, "") : null;
+
+    const contactData = {
+      name,
+      number,
+      email: email || undefined,
+      isGroup,
+      companyId,
+      profilePicUrl: profilePicUrl || undefined,
+      cpfCnpj: sanitizedCpfCnpj,
+      representativeCode: representativeCode || undefined,
+      city: city || undefined,
+      instagram: instagram || undefined,
+      situation: situation || "Ativo",
+      fantasyName: fantasyName || undefined,
+      foundationDate: foundationDate || undefined,
+      creditLimit: sanitizedCreditLimit
+    };
+
     const io = getIO();
     let contact: Contact | null;
 
@@ -94,6 +136,16 @@ const CreateOrUpdateContactService = async ({
       contact.remoteJid = remoteJid;
       contact.profilePicUrl = profilePicUrl || null;
       contact.isGroup = isGroup;
+      // Atualiza os novos campos se eles forem fornecidos
+      contact.cpfCnpj = sanitizedCpfCnpj === undefined ? contact.cpfCnpj : sanitizedCpfCnpj;
+      contact.representativeCode = representativeCode || contact.representativeCode;
+      contact.city = city || contact.city;
+      contact.instagram = instagram || contact.instagram;
+      contact.situation = situation || contact.situation;
+      contact.fantasyName = fantasyName || contact.fantasyName;
+      contact.foundationDate = foundationDate || contact.foundationDate;
+      contact.creditLimit = creditLimit !== undefined ? (creditLimit || null) : contact.creditLimit;
+
       if (isNil(contact.whatsappId)) {
         const whatsapp = await Whatsapp.findOne({
           where: { id: whatsappId, companyId }
@@ -132,7 +184,7 @@ const CreateOrUpdateContactService = async ({
         contact.name = name;
       }
 
-      await contact.save(); // Ensure save() is called to trigger updatedAt
+      await contact.update(contactData);
       await contact.reload();
 
     } else if (wbot && ['whatsapp'].includes(channel)) {
@@ -152,15 +204,10 @@ const CreateOrUpdateContactService = async ({
       }
 
       contact = await Contact.create({
-        name,
-        number,
-        email,
-        isGroup,
-        companyId,
+        ...contactData,
         channel,
         acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
         remoteJid: newRemoteJid,
-        profilePicUrl,
         urlPicture: "",
         whatsappId
       });
@@ -168,14 +215,8 @@ const CreateOrUpdateContactService = async ({
       createContact = true;
     } else if (['facebook', 'instagram'].includes(channel)) {
       contact = await Contact.create({
-        name,
-        number,
-        email,
-        isGroup,
-        companyId,
+        ...contactData,
         channel,
-        profilePicUrl,
-        urlPicture: "",
         whatsappId
       });
     }

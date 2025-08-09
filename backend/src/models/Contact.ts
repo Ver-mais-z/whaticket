@@ -68,6 +68,62 @@ class Contact extends Model<Contact> {
   @Column
   channel: string;
 
+  // Novos campos adicionados
+  @Column({
+    allowNull: true,
+    validate: {
+      isValidDocument(value: string) {
+        if (value) {
+          const cleanDoc = value.replace(/\D/g, '');
+          if (![11, 14].includes(cleanDoc.length)) {
+            throw new Error('CPF/CNPJ inválido');
+          }
+        }
+      }
+    }
+  })
+  cpfCnpj: string;
+
+  @Column({
+    allowNull: true
+  })
+  representativeCode: string;
+
+  @Column({
+    allowNull: true
+  })
+  city: string;
+
+  @Column({
+    allowNull: true
+  })
+  instagram: string;
+
+  @Column({
+    type: 'ENUM',
+    values: ['Ativo', 'Inativo', 'Suspenso'],
+    allowNull: true,
+    defaultValue: 'Ativo'
+  })
+  situation: string;
+
+  @Column({
+    allowNull: true
+  })
+  fantasyName: string;
+
+  @Column({
+    type: 'DATEONLY',
+    allowNull: true
+  })
+  foundationDate: Date;
+
+  @Column({
+    type: 'VARCHAR(50)',
+    allowNull: true
+  })
+  creditLimit: string;
+
   @CreatedAt
   createdAt: Date;
 
@@ -112,10 +168,9 @@ class Contact extends Model<Contact> {
   @Column
   get urlPicture(): string | null {
     if (this.getDataValue("urlPicture")) {
-      
-      return this.getDataValue("urlPicture") === 'nopicture.png' ?   `${process.env.FRONTEND_URL}/nopicture.png` :
-      `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}` 
-
+      return this.getDataValue("urlPicture") === 'nopicture.png' ?
+        `${process.env.FRONTEND_URL}/nopicture.png` :
+        `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}`
     }
     return null;
   }
@@ -132,6 +187,13 @@ class Contact extends Model<Contact> {
 
   @BelongsTo(() => Whatsapp)
   whatsapp: Whatsapp;
+
+  @ForeignKey(() => User)
+  @Column
+  userId: number;
+
+  @BelongsTo(() => User)
+  user: User;
 }
 
 export default Contact;
