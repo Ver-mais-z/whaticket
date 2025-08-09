@@ -8,6 +8,8 @@ import logger from "../../utils/logger";
 import { isNil } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
 import * as Sentry from "@sentry/node";
+import { isValidCPF, isValidCNPJ } from "../../utils/validators";
+import AppError from "../../errors/AppError";
 
 const axios = require('axios');
 
@@ -30,6 +32,23 @@ interface Request {
   wbot?: any;
   cpfCnpj?: string;
 }
+
+const validateCpfCnpj = (cpfCnpj: string | undefined) => {
+  if (cpfCnpj) {
+    const cleanValue = cpfCnpj.replace(/\D/g, '');
+    if (cleanValue.length === 11) {
+      if (!isValidCPF(cleanValue)) {
+        throw new AppError("CPF inválido", 400);
+      }
+    } else if (cleanValue.length === 14) {
+      if (!isValidCNPJ(cleanValue)) {
+        throw new AppError("CNPJ inválido", 400);
+      }
+    } else if (cleanValue.length > 0) {
+      throw new AppError("CPF/CNPJ inválido", 400);
+    }
+  }
+};
 
 const downloadProfileImage = async ({
   profilePicUrl,
@@ -74,9 +93,12 @@ const CreateOrUpdateContactService = async ({
   extraInfo = [],
   remoteJid = "",
   whatsappId,
-  wbot
+  wbot,
+  cpfCnpj
 }: Request): Promise<Contact> => {
   try {
+    validateCpfCnpj(cpfCnpj);
+
     let createContact = false;
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
@@ -132,6 +154,7 @@ const CreateOrUpdateContactService = async ({
       if (contact.name === number) {
         contact.name = name;
       }
+      contact.cpfCnpj = cpfCnpj; // Adiciona esta linha para atualizar o cpfCnpj em contatos existentes
 
       await contact.save(); // Ensure save() is called to trigger updatedAt
       await contact.reload();
@@ -164,7 +187,6 @@ const CreateOrUpdateContactService = async ({
         profilePicUrl,
         urlPicture: "",
         cpfCnpj,
-        contact.cpfCnpj = cpfCnpj;
         whatsappId
       });
 
