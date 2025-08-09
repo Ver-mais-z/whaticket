@@ -1,0 +1,463 @@
+import React, { useState, useEffect } from "react";
+
+
+import * as Yup from "yup";
+import { Formik, Form, Field } from "formik";
+import { toast } from "react-toastify";
+
+import { makeStyles } from "@material-ui/core/styles";
+import { green } from "@material-ui/core/colors";
+import Button from "@material-ui/core/Button";
+import TextField from "@material-ui/core/TextField";
+import CircularProgress from "@material-ui/core/CircularProgress";
+
+import { i18n } from "../../translate/i18n";
+
+import api from "../../services/api";
+import toastError from "../../errors/toastError";
+import { Grid, FormControlLabel, Checkbox } from "@material-ui/core";
+
+const useStyles = makeStyles(theme => ({
+        root: {
+                display: "flex",
+                flexWrap: "wrap",
+        },
+        textField: {
+                marginRight: theme.spacing(1),
+                flex: 1,
+        },
+
+        extraAttr: {
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+        },
+
+        btnWrapper: {
+                position: "relative",
+        },
+
+        buttonProgress: {
+                color: green[500],
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                marginTop: -12,
+                marginLeft: -12,
+        },
+
+    textCenter: {
+        display: 'flex',
+        alignItems: 'center'
+    }
+}));
+
+// Função para validar CPF
+const validateCPF = (cpf) => {
+  cpf = cpf.replace(/[^\d]/g, '');
+  if (cpf.length !== 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cpf)) return false;
+  
+  // Validação do primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cpf.charAt(i)) * (10 - i);
+  }
+  let rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf.charAt(9))) return false;
+  
+  // Validação do segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cpf.charAt(i)) * (11 - i);
+  }
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  
+  return rest === parseInt(cpf.charAt(10));
+};
+
+// Função para validar CNPJ
+const validateCNPJ = (cnpj) => {
+  cnpj = cnpj.replace(/[^\d]/g, '');
+  if (cnpj.length !== 14) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cnpj)) return false;
+  
+  // Validação do primeiro dígito verificador
+  let size = cnpj.length - 2;
+  let numbers = cnpj.substring(0, size);
+  const digits = cnpj.substring(size);
+  let sum = 0;
+  let pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += numbers.charAt(size - i) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(0))) return false;
+  
+  // Validação do segundo dígito verificador
+  size = size + 1;
+  numbers = cnpj.substring(0, size);
+  sum = 0;
+  pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += numbers.charAt(size - i) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  return result === parseInt(digits.charAt(1));
+};
+
+// Função para formatar CPF/CNPJ
+const formatCpfCnpj = (value) => {
+  if (!value) return '';
+  
+  const numbers = value.replace(/[^\d]/g, '');
+  
+  if (numbers.length <= 11) {
+    // Formatar como CPF
+    return numbers
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  } else {
+    // Formatar como CNPJ
+    return numbers
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\/\d{4})(\d)/, '$1-$2');
+  }
+};
+
+const ContactSchema = Yup.object().shape({
+  name: Yup.string()
+    .min(2, "Nome muito curto!")
+    .max(50, "Nome muito longo!")
+    .required("Campo obrigatório"),
+  number: Yup.string()
+    .min(8, "Número muito curto!")
+    .max(50, "Número muito longo!"),
+  email: Yup.string()
+    .email("E-mail inválido")
+    .nullable()
+    .transform(value => (value === '' ? null : value)),
+  cpfCnpj: Yup.string()
+    .transform(value => value ? value.replace(/[^\d]/g, '') : '')
+    .test('cpfCnpj', 'CPF/CNPJ inválido', function(value) {
+      if (!value) return true; // Campo não é obrigatório
+      
+      const numbers = value.replace(/[^\d]/g, '');
+      
+      if (numbers.length === 11) {
+        return validateCPF(numbers);
+      } else if (numbers.length === 14) {
+        return validateCNPJ(numbers);
+      }
+      
+      return false;
+    })
+    .nullable()
+    .transform(value => value || null),
+  representativeCode: Yup.string().nullable(),
+  city: Yup.string().nullable(),
+  instagram: Yup.string().nullable(),
+  situation: Yup.mixed().oneOf(['Ativo', 'Inativo', 'Suspenso']).default('Ativo'),
+  fantasyName: Yup.string().nullable(),
+  foundationDate: Yup.string().nullable(),
+  creditLimit: Yup.string().nullable(),
+  disableBot: Yup.boolean().default(false),
+});
+
+export const ContactForm = ({ initialContact, onSave, onCancel }) => {
+  const classes = useStyles();
+  const [formValues, setFormValues] = useState({
+    name: '',
+    number: '',
+    email: '',
+    disableBot: false,
+    cpfCnpj: '',
+    representativeCode: '',
+    city: '',
+    instagram: '',
+    situation: 'Ativo',
+    fantasyName: '',
+    foundationDate: '',
+    creditLimit: '',
+    ...initialContact
+  });
+
+  // Atualiza os valores do formulário quando initialContact mudar
+  useEffect(() => {
+    if (initialContact) {
+      setFormValues(prev => ({
+        ...prev,
+        ...initialContact,
+        cpfCnpj: initialContact.cpfCnpj || ''
+      }));
+    }
+  }, [initialContact]);
+
+        const handleSaveContact = async values => {
+                try {
+                        if (values.id) {
+                                await api.put(`/contacts/${values.id}`, values);
+                        } else {
+                                const { data } = await api.post("/contacts", values);
+                                if (onSave) {
+                                        onSave(data);
+                                }
+                        }
+                        toast.success(i18n.t("contactModal.success"));
+                        if (onSave) onSave(values);
+                } catch (err) {
+                        toastError(err);
+                        throw err;
+                }
+        };
+
+    return (
+        <Formik
+            initialValues={formValues}
+            enableReinitialize={true}
+            validationSchema={ContactSchema}
+            onSubmit={async (values, { setSubmitting, resetForm }) => {
+              try {
+                await handleSaveContact(values);
+                setSubmitting(false);
+              } catch (err) {
+                setSubmitting(false);
+              }
+            }}
+        >
+            {({ values, errors, touched, isSubmitting, handleChange, handleBlur }) => (
+                <Form>
+                    <Grid container spacing={1}>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label={i18n.t("contactModal.form.name")}
+                                name="name"
+                                autoFocus
+                                error={touched.name && Boolean(errors.name)}
+                                helperText={touched.name && errors.name}
+                                variant="outlined"
+                                margin="dense"
+                                className={classes.textField}
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label={i18n.t("contactModal.form.number")}
+                                name="number"
+                                error={touched.number && Boolean(errors.number)}
+                                helperText={touched.number && errors.number}
+                                placeholder="5513912344321"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label={i18n.t("contactModal.form.email")}
+                                name="email"
+                                error={touched.email && Boolean(errors.email)}
+                                helperText={touched.email && errors.email}
+                                placeholder="email@exemplo.com"
+                                fullWidth
+                                margin="dense"
+                                variant="outlined"
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <div>
+                                <TextField
+                                    label="CPF/CNPJ"
+                                    name="cpfCnpj"
+                                    variant="outlined"
+                                    margin="dense"
+                                    fullWidth
+                                    value={formatCpfCnpj(values.cpfCnpj || '')}
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/[^\d]/g, '');
+                                      handleChange({
+                                        target: { name: 'cpfCnpj', value }
+                                      });
+                                    }}
+                                    onBlur={handleBlur}
+                                    error={touched.cpfCnpj && Boolean(errors.cpfCnpj)}
+                                    helperText={
+                                      touched.cpfCnpj && errors.cpfCnpj 
+                                        ? errors.cpfCnpj 
+                                        : values.cpfCnpj && values.cpfCnpj.length > 0
+                                            ? values.cpfCnpj.replace(/[^\d]/g, '').length === 11 
+                                                ? 'CPF válido' 
+                                                : values.cpfCnpj.replace(/[^\d]/g, '').length === 14 
+                                                    ? 'CNPJ válido'
+                                                    : '11 dígitos para CPF ou 14 para CNPJ'
+                                            : 'Opcional - informe CPF (11 dígitos) ou CNPJ (14 dígitos)'
+                                    }
+                                    inputProps={{
+                                        maxLength: 18
+                                    }}
+                                />
+                            </div>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Código do Representante"
+                                name="representativeCode"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.representativeCode || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Cidade"
+                                name="city"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.city || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Instagram"
+                                name="instagram"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.instagram || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Nome Fantasia"
+                                name="fantasyName"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.fantasyName || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                select
+                                label="Situação"
+                                name="situation"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.situation || 'Ativo'}
+                                SelectProps={{
+                                    native: true,
+                                }}
+                            >
+                                <option value="Ativo">Ativo</option>
+                                <option value="Inativo">Inativo</option>
+                                <option value="Suspenso">Suspenso</option>
+                            </Field>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Data de Fundação"
+                                name="foundationDate"
+                                type="date"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                InputLabelProps={{
+                                    shrink: true,
+                                }}
+                                value={values.foundationDate || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={TextField}
+                                label="Limite de Crédito"
+                                name="creditLimit"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                                value={values.creditLimit || ''}
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Field
+                                as={FormControlLabel}
+                                control={
+                                    <Checkbox
+                                        checked={values.disableBot || false}
+                                        onChange={handleChange}
+                                        name="disableBot"
+                                        color="primary"
+                                    />
+                                }
+                                label="Desativar Bot"
+                            />
+                        </Grid>
+                        <Grid item xs={12} spacing={1}>
+                            <Grid container spacing={1}>
+                                <Grid xs={6} item>
+                                    <Button
+                                        onClick={onCancel}
+                                        color="secondary"
+                                        disabled={isSubmitting}
+                                        variant="outlined"
+                                        fullWidth
+                                    >
+                                        {i18n.t("contactModal.buttons.cancel")}
+                                    </Button>
+                                </Grid>
+                                <Grid classes={classes.textCenter} xs={6} item>
+                                    <Button
+                                        type="submit"
+                                        color="primary"
+                                        disabled={isSubmitting}
+                                        variant="contained"
+                                        className={classes.btnWrapper}
+                                        fullWidth
+                                    >
+                                        {formValues.id
+                                            ? i18n.t("contactModal.buttons.okEdit")
+                                            : i18n.t("contactModal.buttons.add")}
+                                        {isSubmitting && (
+                                            <CircularProgress
+                                                size={24}
+                                                className={classes.buttonProgress}
+                                            />
+                                        )}
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Form>
+            )}
+        </Formik>
+    )
+}

@@ -229,6 +229,30 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 										<Typography style={{ color: "primary", fontSize: 12 }}>
 											<Link href={`mailto:${contact.email}`}>{contact.email}</Link>
 										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.cpfCnpj && `CPF/CNPJ: ${contact.cpfCnpj}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.representativeCode && `Cód. Representante: ${contact.representativeCode}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.city && `Cidade: ${contact.city}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.instagram && `Instagram: ${contact.instagram}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.fantasyName && `Nome Fantasia: ${contact.fantasyName}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.situation && `Situação: ${contact.situation}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.foundationDate && `Data de Fundação: ${new Date(contact.foundationDate).toLocaleDateString()}`}
+										</Typography>
+										<Typography style={{ color: "primary", fontSize: 12 }}>
+											{contact.creditLimit && contact.creditLimit !== '' && `Limite de Crédito: R$ ${parseFloat(contact.creditLimit).toFixed(2).replace('.', ',')}`}
+										</Typography>
 									</>
 								}
 							/>

@@ -15,7 +15,14 @@ interface Request {
   profilePicUrl?: string;
   extraInfo?: ExtraInfo[];
   companyId: number;
+  creditLimit?: string;
   cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  fantasyName?: string;
+  foundationDate?: Date;
 }
 
 const CreateOrUpdateContactServiceForImport = async ({
@@ -25,7 +32,16 @@ const CreateOrUpdateContactServiceForImport = async ({
   isGroup,
   email = "",
   commandBot = "",
-  extraInfo = [], companyId
+  extraInfo = [], 
+  companyId,
+  creditLimit = "",
+  cpfCnpj,
+  representativeCode,
+  city,
+  instagram,
+  situation,
+  fantasyName,
+  foundationDate
 }: Request): Promise<Contact> => {
   const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
 
@@ -35,10 +51,24 @@ const CreateOrUpdateContactServiceForImport = async ({
   contact = await Contact.findOne({ where: { number , companyId } });
 
   if (contact) {
-    if (contact.companyId === null)
-      await contact.update({ name ,profilePicUrl, companyId })
-    else
-      await contact.update({ name , profilePicUrl });
+    const updateData: any = { 
+      name, 
+      profilePicUrl,
+      cpfCnpj,
+      representativeCode,
+      city,
+      instagram,
+      situation: situation || contact.situation,
+      fantasyName,
+      foundationDate,
+      creditLimit: creditLimit || contact.creditLimit
+    };
+    
+    if (contact.companyId === null) {
+      updateData.companyId = companyId;
+    }
+    
+    await contact.update(updateData);
 
       io.of(String(companyId))
   .emit(`company-${companyId}-contact`, {
@@ -54,7 +84,15 @@ const CreateOrUpdateContactServiceForImport = async ({
       email,
       commandBot,
       isGroup,
-      extraInfo
+      extraInfo,
+      creditLimit,
+      cpfCnpj,
+      representativeCode,
+      city,
+      instagram,
+      situation: situation || 'Ativo',
+      fantasyName,
+      foundationDate
     });
 
     io.of(String(companyId))

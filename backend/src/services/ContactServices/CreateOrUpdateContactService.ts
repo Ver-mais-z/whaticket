@@ -8,8 +8,6 @@ import logger from "../../utils/logger";
 import { isNil } from "lodash";
 import Whatsapp from "../../models/Whatsapp";
 import * as Sentry from "@sentry/node";
-import { isValidCPF, isValidCNPJ } from "../../utils/validators";
-import AppError from "../../errors/AppError";
 
 const axios = require('axios');
 
@@ -30,25 +28,17 @@ interface Request {
   remoteJid?: string;
   whatsappId?: number;
   wbot?: any;
+  userId?: string | number;
+  // Novos campos
   cpfCnpj?: string;
+  representativeCode?: string;
+  city?: string;
+  instagram?: string;
+  situation?: string;
+  fantasyName?: string;
+  foundationDate?: Date;
+  creditLimit?: string;
 }
-
-const validateCpfCnpj = (cpfCnpj: string | undefined) => {
-  if (cpfCnpj) {
-    const cleanValue = cpfCnpj.replace(/\D/g, '');
-    if (cleanValue.length === 11) {
-      if (!isValidCPF(cleanValue)) {
-        throw new AppError("CPF inválido", 400);
-      }
-    } else if (cleanValue.length === 14) {
-      if (!isValidCNPJ(cleanValue)) {
-        throw new AppError("CNPJ inválido", 400);
-      }
-    } else if (cleanValue.length > 0) {
-      throw new AppError("CPF/CNPJ inválido", 400);
-    }
-  }
-};
 
 const downloadProfileImage = async ({
   profilePicUrl,
@@ -87,21 +77,50 @@ const CreateOrUpdateContactService = async ({
   number: rawNumber,
   profilePicUrl,
   isGroup,
-  email = "",
+  email,
   channel = "whatsapp",
   companyId,
   extraInfo = [],
-  remoteJid = "",
+  remoteJid,
   whatsappId,
   wbot,
-  cpfCnpj
+  userId,
+  // Novos campos
+  cpfCnpj,
+  representativeCode,
+  city,
+  instagram,
+  situation,
+  fantasyName,
+  foundationDate,
+  creditLimit
 }: Request): Promise<Contact> => {
   try {
-    validateCpfCnpj(cpfCnpj);
-
     let createContact = false;
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
+
+    // Garante que creditLimit seja null se não estiver definido
+    const sanitizedCreditLimit = (creditLimit === null || creditLimit === undefined || creditLimit === '') ? null : String(creditLimit);
+    const sanitizedCpfCnpj = cpfCnpj ? cpfCnpj.replace(/[^0-9]/g, "") : null;
+
+    const contactData = {
+      name,
+      number,
+      email: email || undefined,
+      isGroup,
+      companyId,
+      profilePicUrl: profilePicUrl || undefined,
+      cpfCnpj: sanitizedCpfCnpj,
+      representativeCode: representativeCode || undefined,
+      city: city || undefined,
+      instagram: instagram || undefined,
+      situation: situation || "Ativo",
+      fantasyName: fantasyName || undefined,
+      foundationDate: foundationDate || undefined,
+      creditLimit: sanitizedCreditLimit
+    };
+
     const io = getIO();
     let contact: Contact | null;
 
@@ -117,6 +136,16 @@ const CreateOrUpdateContactService = async ({
       contact.remoteJid = remoteJid;
       contact.profilePicUrl = profilePicUrl || null;
       contact.isGroup = isGroup;
+      // Atualiza os novos campos se eles forem fornecidos
+      contact.cpfCnpj = sanitizedCpfCnpj === undefined ? contact.cpfCnpj : sanitizedCpfCnpj;
+      contact.representativeCode = representativeCode || contact.representativeCode;
+      contact.city = city || contact.city;
+      contact.instagram = instagram || contact.instagram;
+      contact.situation = situation || contact.situation;
+      contact.fantasyName = fantasyName || contact.fantasyName;
+      contact.foundationDate = foundationDate || contact.foundationDate;
+      contact.creditLimit = creditLimit !== undefined ? (creditLimit || null) : contact.creditLimit;
+
       if (isNil(contact.whatsappId)) {
         const whatsapp = await Whatsapp.findOne({
           where: { id: whatsappId, companyId }
@@ -154,9 +183,8 @@ const CreateOrUpdateContactService = async ({
       if (contact.name === number) {
         contact.name = name;
       }
-      contact.cpfCnpj = cpfCnpj; // Adiciona esta linha para atualizar o cpfCnpj em contatos existentes
 
-      await contact.save(); // Ensure save() is called to trigger updatedAt
+      await contact.update(contactData);
       await contact.reload();
 
     } else if (wbot && ['whatsapp'].includes(channel)) {
@@ -176,31 +204,19 @@ const CreateOrUpdateContactService = async ({
       }
 
       contact = await Contact.create({
-        name,
-        number,
-        email,
-        isGroup,
-        companyId,
+        ...contactData,
         channel,
         acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
         remoteJid: newRemoteJid,
-        profilePicUrl,
         urlPicture: "",
-        cpfCnpj,
         whatsappId
       });
 
       createContact = true;
     } else if (['facebook', 'instagram'].includes(channel)) {
       contact = await Contact.create({
-        name,
-        number,
-        email,
-        isGroup,
-        companyId,
+        ...contactData,
         channel,
-        profilePicUrl,
-        urlPicture: "",
         whatsappId
       });
     }
@@ -252,13 +268,13 @@ const CreateOrUpdateContactService = async ({
           contact
         });
     } else {
-
+      
       io.of(String(companyId))
         .emit(`company-${companyId}-contact`, {
           action: "update",
           contact
         });
-
+        
     }
 
     return contact;
