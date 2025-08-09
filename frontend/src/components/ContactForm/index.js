@@ -14,7 +14,9 @@ import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
-import { Grid } from "@material-ui/core";
+import InputMask from "react-input-mask";
+import { FormControl, InputLabel, MenuItem, Select, Grid } from "@material-ui/core";
+import { isValidCPF, isValidCNPJ } from "../../utils/validators";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -57,6 +59,26 @@ const ContactSchema = Yup.object().shape({
 		.required("Required"),
 	number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
 	email: Yup.string().email("Invalid email"),
+    cpfCnpj: Yup.string()
+        .nullable()
+        .test('cpfCnpj-validation', 'CPF/CNPJ inválido', (value) => {
+            if (!value) return true; // Permite campo vazio
+            const cleanValue = value.replace(/\D/g, '');
+            if (cleanValue.length === 11) {
+                return isValidCPF(cleanValue);
+            }
+            if (cleanValue.length === 14) {
+                return isValidCNPJ(cleanValue);
+            }
+            return false;
+        }),
+    representativeCode: Yup.string().nullable(),
+    city: Yup.string().nullable(),
+    instagram: Yup.string().nullable(),
+    situation: Yup.string().nullable(),
+    fantasyName: Yup.string().nullable(),
+    foundationDate: Yup.date().nullable(),
+    creditLimit: Yup.string().nullable(),
 });
 
 export function ContactForm ({ initialContact, onSave, onCancel }) {
@@ -142,6 +164,122 @@ export function ContactForm ({ initialContact, onSave, onCancel }) {
                                 fullWidth
                                 margin="dense"
                                 variant="outlined"
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field name="cpfCnpj">
+                                {({ field, form }) => {
+                                    const cleanValue = field.value?.replace(/\D/g, '') || '';
+                                    const mask = cleanValue.length > 11 ? "99.999.999/9999-99" : "999.999.999-999";
+                                    return (
+                                        <InputMask
+                                            {...field}
+                                            mask={mask}
+                                            maskChar={null}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                const cleanValue = value.replace(/\D/g, '');
+                                                form.setFieldValue('cpfCnpj', cleanValue);
+                                            }}
+                                        >
+                                            {(inputProps) => (
+                                                <TextField
+                                                    {...inputProps}
+                                                    label="CPF/CNPJ"
+                                                    variant="outlined"
+                                                    margin="dense"
+                                                    fullWidth
+                                                    error={touched.cpfCnpj && Boolean(errors.cpfCnpj)}
+                                                    helperText={touched.cpfCnpj && errors.cpfCnpj}
+                                                />
+                                            )}
+                                        </InputMask>
+                                    )
+                                }}
+                            </Field>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Código do Representante"
+                                name="representativeCode"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Cidade"
+                                name="city"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Instagram"
+                                name="instagram"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <FormControl
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            >
+                                <InputLabel id="situation-select-label">Situação</InputLabel>
+                                <Field
+                                    as={Select}
+                                    labelId="situation-select-label"
+                                    id="situation-select"
+                                    name="situation"
+                                    label="Situação"
+                                >
+                                    <MenuItem value="Ativo">Ativo</MenuItem>
+                                    <MenuItem value="Inativo">Inativo</MenuItem>
+                                    <MenuItem value="Suspenso">Suspenso</MenuItem>
+                                </Field>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Nome Fantasia"
+                                name="fantasyName"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Data de Fundação"
+                                name="foundationDate"
+                                type="date"
+                                InputLabelProps={{
+                                    shrink: true,
+                                }}
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Field
+                                as={TextField}
+                                label="Limite de Crédito"
+                                name="creditLimit"
+                                variant="outlined"
+                                margin="dense"
+                                fullWidth
                             />
                         </Grid>
                         <Grid item xs={12} spacing={1}>

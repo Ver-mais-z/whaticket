@@ -17,12 +17,15 @@ import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Switch from "@material-ui/core/Switch";
+import { Grid, FormControl, InputLabel, MenuItem, Select } from "@material-ui/core";
 
 import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { TagsContainer } from "../TagsContainer";
+import InputMask from "react-input-mask";
+import { isValidCPF, isValidCNPJ } from "../../utils/validators";
 // import AsyncSelect from "../AsyncSelect";
 
 const useStyles = makeStyles(theme => ({
@@ -62,6 +65,26 @@ const ContactSchema = Yup.object().shape({
 		.required("Required"),
 	number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
 	email: Yup.string().email("Invalid email"),
+    cpfCnpj: Yup.string()
+        .nullable()
+        .test('cpfCnpj-validation', 'CPF/CNPJ inválido', (value) => {
+            if (!value) return true; // Permite campo vazio
+            const cleanValue = value.replace(/\D/g, '');
+            if (cleanValue.length === 11) {
+                return isValidCPF(cleanValue);
+            }
+            if (cleanValue.length === 14) {
+                return isValidCNPJ(cleanValue);
+            }
+            return false;
+        }),
+    representativeCode: Yup.string().nullable(),
+    city: Yup.string().nullable(),
+    instagram: Yup.string().nullable(),
+    situation: Yup.string().nullable(),
+    fantasyName: Yup.string().nullable(),
+    foundationDate: Yup.date().nullable(),
+    creditLimit: Yup.string().nullable(),
 });
 
 const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
@@ -73,7 +96,15 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 		number: "",
 		email: "",
 		disableBot: false,
-		lgpdAcceptedAt: ""
+		lgpdAcceptedAt: "",
+		cpfCnpj: "",
+		representativeCode: "",
+		city: "",
+		instagram: "",
+		situation: "Ativo",
+		fantasyName: "",
+		foundationDate: "",
+		creditLimit: ""
 	};
 
 	const [contact, setContact] = useState(initialState);
@@ -133,7 +164,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 
 	return (
 		<div className={classes.root}>
-			<Dialog open={open} onClose={handleClose} maxWidth="lg" scroll="paper">
+			<Dialog open={open} onClose={handleClose} maxWidth="sm" scroll="paper">
 				<DialogTitle id="form-dialog-title">
 					{contactId
 						? `${i18n.t("contactModal.title.edit")}`
@@ -156,40 +187,163 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 								<Typography variant="subtitle1" gutterBottom>
 									{i18n.t("contactModal.form.mainInfo")}
 								</Typography>
-								<Field
-									as={TextField}
-									label={i18n.t("contactModal.form.name")}
-									name="name"
-									autoFocus
-									error={touched.name && Boolean(errors.name)}
-									helperText={touched.name && errors.name}
-									variant="outlined"
-									margin="dense"
-									className={classes.textField}
-								/>
-								<Field
-									as={TextField}
-									label={i18n.t("contactModal.form.number")}
-									name="number"
-									error={touched.number && Boolean(errors.number)}
-									helperText={touched.number && errors.number}
-									placeholder="5513912344321"
-									variant="outlined"
-									margin="dense"
-								/>
-								<div>
-									<Field
-										as={TextField}
-										label={i18n.t("contactModal.form.email")}
-										name="email"
-										error={touched.email && Boolean(errors.email)}
-										helperText={touched.email && errors.email}
-										placeholder="Email address"
-										fullWidth
-										margin="dense"
-										variant="outlined"
-									/>
-								</div>
+								<Grid container spacing={2}>
+									<Grid item xs={12}>
+										<Field
+											as={TextField}
+											label={i18n.t("contactModal.form.name")}
+											name="name"
+											autoFocus
+											error={touched.name && Boolean(errors.name)}
+											helperText={touched.name && errors.name}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label={i18n.t("contactModal.form.number")}
+											name="number"
+											error={touched.number && Boolean(errors.number)}
+											helperText={touched.number && errors.number}
+											placeholder="5513912344321"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label={i18n.t("contactModal.form.email")}
+											name="email"
+											error={touched.email && Boolean(errors.email)}
+											helperText={touched.email && errors.email}
+											placeholder="Email address"
+											fullWidth
+											margin="dense"
+											variant="outlined"
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field name="cpfCnpj">
+											{({ field, form }) => {
+												const cleanValue = field.value?.replace(/\D/g, '') || '';
+												const mask = cleanValue.length > 11 ? "99.999.999/9999-99" : "999.999.999-999";
+												return (
+													<InputMask
+														{...field}
+														mask={mask}
+														maskChar={null}
+														onChange={(e) => {
+															const value = e.target.value;
+															const cleanValue = value.replace(/\D/g, '');
+															form.setFieldValue('cpfCnpj', cleanValue);
+														}}
+													>
+														{(inputProps) => (
+															<TextField
+																{...inputProps}
+																label="CPF/CNPJ"
+																variant="outlined"
+																margin="dense"
+																fullWidth
+																error={touched.cpfCnpj && Boolean(errors.cpfCnpj)}
+																helperText={touched.cpfCnpj && errors.cpfCnpj}
+															/>
+														)}
+													</InputMask>
+												)
+											}}
+										</Field>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Código do Representante"
+											name="representativeCode"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Cidade"
+											name="city"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Instagram"
+											name="instagram"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<FormControl
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										>
+											<InputLabel id="situation-select-label">Situação</InputLabel>
+											<Field
+												as={Select}
+												labelId="situation-select-label"
+												id="situation-select"
+												name="situation"
+												label="Situação"
+											>
+												<MenuItem value="Ativo">Ativo</MenuItem>
+												<MenuItem value="Inativo">Inativo</MenuItem>
+												<MenuItem value="Suspenso">Suspenso</MenuItem>
+											</Field>
+										</FormControl>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Nome Fantasia"
+											name="fantasyName"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Data de Fundação"
+											name="foundationDate"
+											type="date"
+											InputLabelProps={{
+												shrink: true,
+											}}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} md={6}>
+										<Field
+											as={TextField}
+											label="Limite de Crédito"
+											name="creditLimit"
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+								</Grid>
 								<div>
 									<TagsContainer contact={contact} className={classes.textField} />
 								</div>
