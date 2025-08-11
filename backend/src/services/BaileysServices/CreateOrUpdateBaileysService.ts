@@ -19,34 +19,53 @@ const createOrUpdateBaileysService = async ({
     });
 
     if (baileysExists) {
-      const getChats = baileysExists.chats
-        ? JSON.parse(baileysExists.chats)
-        : [];
-      const getContacts = baileysExists.contacts
-        ? JSON.parse(baileysExists.contacts)
-        : [];
-
+      let getChats: Chat[] = [];
+      let getContacts: Contact[] = [];
+    
+      // Converte os chats existentes se a string estiver OK
+      if (baileysExists.chats) {
+        try {
+          getChats = JSON.parse(baileysExists.chats);
+        } catch (err) {
+          console.warn(`Chats JSON inválido: ${baileysExists.chats}, substituindo por []`);
+          getChats = [];
+        }
+      }
+    
+      // Converte os contatos existentes se a string estiver OK
+      if (baileysExists.contacts) {
+        try {
+          getContacts = JSON.parse(baileysExists.contacts);
+        } catch (err) {
+          console.warn(`Contacts JSON inválido: ${baileysExists.contacts}, substituindo por []`);
+          getContacts = [];
+        }
+      }
+    
+      // A partir daqui o fluxo continua como antes
       if (chats) {
         getChats.push(...chats);
         getChats.sort();
-        const newChats = getChats.filter((v: Chat, i: number, a: Chat[]) => a.findIndex(v2 => (v2.id === v.id)) === i)
-
+        const newChats = getChats.filter(
+          (v: Chat, i: number, a: Chat[]) => a.findIndex(v2 => v2.id === v.id) === i
+        );
         return await baileysExists.update({
           chats: JSON.stringify(newChats),
         });
       }
-
+    
       if (contacts) {
         getContacts.push(...contacts);
         getContacts.sort();
-        const newContacts = getContacts.filter((v: Contact, i: number, a: Contact[]) => a.findIndex(v2 => (v2.id === v.id)) === i)
-
+        const newContacts = getContacts.filter(
+          (v: Contact, i: number, a: Contact[]) => a.findIndex(v2 => v2.id === v.id) === i
+        );
         return await baileysExists.update({
           contacts: JSON.stringify(newContacts),
         });
       }
-
     }
+    
 
     const baileys = await Baileys.create({
       whatsappId,

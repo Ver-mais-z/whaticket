@@ -99,6 +99,22 @@ const CreateOrUpdateContactService = async ({
     let createContact = false;
     const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
     const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
+    // Após sanitizar o número…
+if (!isGroup) {
+  const numLen = number.length;
+  if (numLen < 10 || numLen > 13) {
+    try {
+      const existing = await Contact.findOne({ where: { number, companyId } });
+      if (existing) {
+        return existing;
+      }
+    } catch (err) {
+      logger.warn("Falha ao buscar contato existente para número inválido", err);
+    }
+    return null as any;
+  }
+}
+
 
     // Garante que creditLimit seja null se não estiver definido
     const sanitizedCreditLimit = (creditLimit === null || creditLimit === undefined || creditLimit === '') ? null : String(creditLimit);

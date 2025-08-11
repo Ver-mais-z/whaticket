@@ -619,7 +619,7 @@ const Contacts = () => {
                                 {i18n.t("contacts.table.email")}
                             </TableCell>
                             <TableCell align="center">
-                                {i18n.t("contacts.table.whatsapp")}
+                                {"Cidade"}
                             </TableCell>
                             <TableCell align="center">{"Status"}</TableCell>
                             <TableCell align="center">
@@ -655,7 +655,7 @@ const Contacts = () => {
                                     <TableCell align="center">
                                         {contact.email}
                                     </TableCell>
-                                    <TableCell>{contact?.whatsapp?.name}</TableCell>
+                                    <TableCell align="center">{contact.city}</TableCell>
                                     <TableCell align="center">
                                         {contact.active ? (
                                             <CheckCircleIcon

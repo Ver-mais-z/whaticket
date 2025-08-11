@@ -796,31 +796,36 @@ const verifyContact = async (
   companyId: number,
   userId: number = null
 ): Promise<Contact> => {
-  let profilePicUrl: string = "";
+  let profilePicUrl = "";
   // try {
   //   profilePicUrl = await wbot.profilePictureUrl(msgContact.id, "image");
   // } catch (e) {
   //   Sentry.captureException(e);
   //   profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
   // }
+  // Remove caracteres não numéricos do JID
+  const cleaned = msgContact.id.replace(/\D/g, "");
+  const isGroup = msgContact.id.includes("g.us");
+
+  // Validação: só cria contato se não for grupo e o número tiver entre 8 e 15 dígitos
+  const isPhoneLike = !isGroup && cleaned.length >= 8 && cleaned.length <= 15;
+  if (!isPhoneLike) {
+    const existing = await Contact.findOne({ where: { remoteJid: msgContact.id, companyId } });
+    return existing; // pode devolver undefined/null se não existir
+  }
 
   const contactData = {
-    name: msgContact.name || msgContact.id.replace(/\D/g, ""),
-    number: msgContact.id.replace(/\D/g, ""),
+    name: msgContact.name || cleaned,
+    number: cleaned,
     profilePicUrl,
-    isGroup: msgContact.id.includes("g.us"),
+    isGroup,
     companyId,
     remoteJid: msgContact.id,
     whatsappId: wbot.id,
     wbot
   };
 
-  if (contactData.isGroup) {
-    contactData.number = msgContact.id.replace("@g.us", "");
-  }
-
   const contact = await CreateOrUpdateContactService(contactData);
-
   return contact;
 };
 

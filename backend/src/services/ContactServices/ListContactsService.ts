@@ -64,10 +64,34 @@ const ListContactsService = async ({
           )
         },
         { number: { [Op.like]: `%${sanitizedSearchParam}%` } },
-        // Adiciona busca por CPF/CNPJ e outros novos campos
-        { cpfCnpj: { [Op.like]: `%${sanitizedSearchParam}%` } },
-        { representativeCode: { [Op.like]: `%${sanitizedSearchParam}%` } },
-        { fantasyName: { [Op.like]: `%${sanitizedSearchParam}%` } }
+        {
+          cpfCnpj: where(
+            fn("LOWER", fn("unaccent", col("Contact.cpfCnpj"))),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        },
+        {
+          representativeCode: where(
+            fn("LOWER", fn("unaccent", col("Contact.representativeCode"))),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        },
+        {
+          fantasyName: where(
+            fn("LOWER", fn("unaccent", col("Contact.fantasyName"))),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        },
+        {
+          city: where(
+            fn("LOWER", fn("unaccent", col("Contact.city"))),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        }
       ]
     };
   }
