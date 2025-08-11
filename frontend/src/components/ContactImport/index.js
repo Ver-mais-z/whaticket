@@ -107,6 +107,14 @@ const ContactImport = () => {
     { id: "number", label: "Número", required: true },
     { id: "email", label: "E-mail", required: false },
     { id: "tags", label: "Tags", required: false },
+    { id: "cpfCnpj", label: "CPF/CNPJ", required: false },
+    { id: "representativeCode", label: "Código do Representante", required: false },
+    { id: "city", label: "Cidade", required: false },
+    { id: "instagram", label: "Instagram", required: false },
+    { id: "situation", label: "Situação", required: false },
+    { id: "fantasyName", label: "Nome Fantasia", required: false },
+    { id: "foundationDate", label: "Data de Fundação", required: false },
+    { id: "creditLimit", label: "Limite de Crédito", required: false },
   ];
 
   useEffect(() => {
@@ -147,7 +155,23 @@ const ContactImport = () => {
             const selectedField = columnValue[column.key];
 
             if (selectedField) {
-              contactData[selectedField] = item[columnIndex];
+              let cellValue = item[columnIndex];
+
+              // Handle date conversion for foundationDate
+              if (selectedField === 'foundationDate' && typeof cellValue === 'number' && cellValue > 0) {
+                // Convert Excel serial date to JS Date object
+                const date = new Date((cellValue - 25569) * 86400 * 1000);
+                // Format as YYYY-MM-DD for backend compatibility
+                cellValue = date.toISOString().split('T')[0];
+              }
+
+              // Ensure fields that should be strings are converted to strings
+              const stringFields = ['cpfCnpj', 'representativeCode', 'creditLimit'];
+              if (stringFields.includes(selectedField) && cellValue !== null && cellValue !== undefined) {
+                cellValue = String(cellValue);
+              }
+
+              contactData[selectedField] = cellValue;
             }
           }
           // Verificar se os campos obrigatórios estão presentes

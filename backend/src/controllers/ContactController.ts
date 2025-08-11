@@ -82,7 +82,7 @@ interface ContactData {
 
 export const importXls = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { number, name, email, validateContact, tags } = req.body;
+  const { number, name, email, validateContact, tags, cpfCnpj, representativeCode, city, instagram, situation, fantasyName, foundationDate, creditLimit } = req.body;
   const simpleNumber = String(number).replace(/[^\d.-]+/g, '');
   let validNumber = simpleNumber;
 
@@ -104,6 +104,14 @@ export const importXls = async (req: Request, res: Response): Promise<Response> 
     isGroup: false,
     email,
     companyId,
+    cpfCnpj: cpfCnpj ? String(cpfCnpj) : null,
+    representativeCode: representativeCode ? String(representativeCode) : null,
+    city,
+    instagram,
+    situation,
+    fantasyName,
+    foundationDate,
+    creditLimit: creditLimit ? String(creditLimit) : null
     // whatsappId: defaultWhatsapp.id
   };
 

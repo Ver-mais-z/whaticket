@@ -1,48 +1,99 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useHistory } from "react-router-dom";
 import { makeStyles } from "@material-ui/core/styles";
-import Paper from "@material-ui/core/Paper";
-
-import { i18n } from "../../translate/i18n";
-import { Button, CircularProgress, Grid, TextField, Typography } from "@material-ui/core";
+import { Paper, Grid, TextField, Typography, Button, CircularProgress, AppBar, Tabs, Tab, Box } from "@material-ui/core";
+import { Alert, AlertTitle } from "@material-ui/lab";
 import { Field, Form, Formik } from "formik";
+import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import { toast } from "react-toastify";
-
 import axios from "axios";
 import usePlans from "../../hooks/usePlans";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
+import WarningIcon from '@material-ui/icons/Warning';
+import SendIcon from '@material-ui/icons/Send';
+
 const useStyles = makeStyles((theme) => ({
   mainPaper: {
     flex: 1,
-    padding: theme.spacing(2),
-    paddingBottom: 100
+    padding: theme.spacing(3),
+    backgroundColor: '#f5f5f5',
+    borderRadius: theme.shape.borderRadius * 2,
   },
-  mainHeader: {
-    marginTop: theme.spacing(1),
+  title: {
+    marginBottom: theme.spacing(3),
+    fontWeight: 'bold',
   },
-  elementMargin: {
-    padding: theme.spacing(2),
+  alert: {
+    marginBottom: theme.spacing(3),
+    borderRadius: theme.shape.borderRadius,
+  },
+  tabPanel: {
+    padding: theme.spacing(3),
+    backgroundColor: '#fff',
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
   },
   formContainer: {
-    maxWidth: 500,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(2),
   },
-  textRight: {
-    textAlign: "right"
-  }
+  codeBlock: {
+    backgroundColor: '#2d2d2d',
+    color: '#f8f8f2',
+    padding: theme.spacing(2),
+    borderRadius: theme.shape.borderRadius,
+    fontFamily: '"Fira Code", "Courier New", Courier, monospace',
+    whiteSpace: 'pre-wrap',
+    fontSize: '14px',
+    overflowX: 'auto',
+  },
+  submitButton: {
+    padding: theme.spacing(1, 4),
+    fontWeight: 'bold',
+  },
+  formField: {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: theme.shape.borderRadius * 2,
+    },
+    '& .MuiInputLabel-outlined': {
+      transform: 'translate(14px, 14px) scale(1)',
+    },
+    '& .MuiInputLabel-outlined.MuiInputLabel-shrink': {
+      transform: 'translate(14px, -6px) scale(0.75)',
+    },
+  },
 }));
+
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`api-tabpanel-${index}`}
+      aria-labelledby={`api-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box className={props.classes.tabPanel}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const MessagesAPI = () => {
   const classes = useStyles();
   const history = useHistory();
-
-  const [formMessageTextData,] = useState({ token: '', number: '', body: '', userId: '', queueId: '' })
-  const [formMessageMediaData,] = useState({ token: '', number: '', medias: '', body:'', userId: '', queueId: '' })
-  const [file, setFile] = useState({})
-  const { user, socket } = useContext(AuthContext);
-
+  const { user } = useContext(AuthContext);
   const { getPlanCompany } = usePlans();
+
+  const [tab, setTab] = useState(0);
+  const [file, setFile] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -50,376 +101,228 @@ const MessagesAPI = () => {
       const planConfigs = await getPlanCompany(undefined, companyId);
       if (!planConfigs.plan.useExternalApi) {
         toast.error("Esta empresa não possui permissão para acessar essa página! Estamos lhe redirecionando.");
-        setTimeout(() => {
-          history.push(`/`)
-        }, 1000);
+        history.push('/');
       }
     }
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user, getPlanCompany, history]);
 
-  const getEndpoint = () => {
-    return process.env.REACT_APP_BACKEND_URL + '/api/messages/send'
-  }
+  const getEndpoint = (path) => process.env.REACT_APP_BACKEND_URL + path;
 
-  const handleSendTextMessage = async (values) => {
-    const { number, body, userId, queueId } = values;
-    const data = { number, body, userId, queueId };
+  const handleTabChange = (event, newValue) => {
+    setTab(newValue);
+  };
+
+  const handleSendTextMessage = async (values, actions) => {
+    const { token, number, body, userId, queueId } = values;
     try {
-      await axios.request({
-        url: getEndpoint(),
-        method: 'POST',
-        data,
-        headers: {
-          'Content-type': 'application/json',
-          'Authorization': `Bearer ${values.token}` 
-        }
-      })
-      toast.success('Mensagem enviada com sucesso');
+      await axios.post(getEndpoint('/api/messages/send'), { number, body, userId, queueId }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      toast.success('Mensagem de texto enviada com sucesso!');
+      actions.resetForm();
     } catch (err) {
       toastError(err);
     }
-  }
+  };
 
-  const handleSendMediaMessage = async (values) => {
+  const handleSendMediaMessage = async (values, actions) => {
+    const { token, number, body, userId, queueId } = values;
+    const formData = new FormData();
+    formData.append('number', number);
+    formData.append('body', body || file.name);
+    formData.append('medias', file);
+    if (userId) formData.append('userId', userId);
+    if (queueId) formData.append('queueId', queueId);
+
     try {
-      const firstFile = file[0];
-      const data = new FormData();
-      data.append('number', values.number);
-      data.append('body', values.body ? values.body: firstFile.name);
-      data.append('userId', values.userId);
-      data.append('queueId', values.queueId);
-      data.append('medias', firstFile);
-      await axios.request({
-        url: getEndpoint(),
-        method: 'POST',
-        data,
-        headers: {
-          'Content-type': 'multipart/form-data',
-          'Authorization': `Bearer ${values.token}`
-        }
-      })
-      toast.success('Mensagem enviada com sucesso');
+      await axios.post(getEndpoint('/api/messages/send'), formData, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Mensagem de mídia enviada com sucesso!');
+      actions.resetForm();
+      setFile(null);
     } catch (err) {
       toastError(err);
     }
-  }
+  };
 
-  const renderFormMessageText = () => {
-    return (
-      <Formik
-        initialValues={formMessageTextData}
-        enableReinitialize={true}
-        onSubmit={(values, actions) => {
-          setTimeout(async () => {
-            await handleSendTextMessage(values);
-            actions.setSubmitting(false);
-            actions.resetForm()
-          }, 400);
-        }}
-        className={classes.elementMargin}
-      >
-        {({ isSubmitting }) => (
-          <Form className={classes.formContainer}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.token")}
-                  name="token"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.number")}
-                  name="number"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.body")}
-                  name="body"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}  md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.userId")}
-                  name="userId"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                />
-              </Grid>
-              <Grid item xs={12}  md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.queueId")}
-                  name="queueId"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                />
-              </Grid>
-              <Grid item xs={12} className={classes.textRight}>
-                <Button
-                  type="submit"
-                  color="primary"
-                  variant="contained"
-                  className={classes.btnWrapper}
-                >
-                  {isSubmitting ? (
-                    <CircularProgress
-                      size={24}
-                      className={classes.buttonProgress}
-                    />
-                  ) : 'Enviar'}
-                </Button>
-              </Grid>
-            </Grid>
-          </Form>
-        )}
-      </Formik>
-    )
-  }
-
-  const renderFormMessageMedia = () => {
-    return (
-      <Formik
-        initialValues={formMessageMediaData}
-        enableReinitialize={true}
-        onSubmit={(values, actions) => {
-          setTimeout(async () => {
-            await handleSendMediaMessage(values);
-            actions.setSubmitting(false);
-            actions.resetForm()
-            document.getElementById('medias').files = null
-            document.getElementById('medias').value = null
-          }, 400);
-        }}
-        className={classes.elementMargin}
-      >
-        {({ isSubmitting }) => (
-          <Form className={classes.formContainer}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.mediaMessage.token")}
-                  name="token"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.mediaMessage.number")}
-                  name="number"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.body")}
-                  name="body"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                />
-              </Grid>
-              <Grid item xs={12}  md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.userId")}
-                  name="userId"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                />
-              </Grid>
-              <Grid item xs={12}  md={6}>
-                <Field
-                  as={TextField}
-                  label={i18n.t("messagesAPI.textMessage.queueId")}
-                  name="queueId"
-                  autoFocus
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  className={classes.textField}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <input type="file" name="medias" id="medias" required onChange={(e) => setFile(e.target.files)} />
-              </Grid>
-              <Grid item xs={12} className={classes.textRight}>
-                <Button
-                  type="submit"
-                  color="primary"
-                  variant="contained"
-                  className={classes.btnWrapper}
-                >
-                  {isSubmitting ? (
-                    <CircularProgress
-                      size={24}
-                      className={classes.buttonProgress}
-                    />
-                  ) : 'Enviar'}
-                </Button>
-              </Grid>
-            </Grid>
-          </Form>
-        )}
-      </Formik>
-    )
-  }
+  const handleSyncContact = async (values, actions) => {
+    const { token, ...contactData } = values;
+    try {
+      await axios.post(getEndpoint('/api/contacts/sync'), contactData, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      toast.success('Contato sincronizado com sucesso!');
+      actions.resetForm();
+    } catch (err) {
+      toastError(err);
+    }
+  };
 
   return (
-    <Paper
-      className={classes.mainPaper}
-      style={{marginLeft: "5px"}}
-      // className={classes.elementMargin}
-      variant="outlined"
-    >
-      <Typography variant="h5">
-        {i18n.t("messagesAPI.API.title")}
+    <Paper className={classes.mainPaper} variant="elevation" elevation={0}>
+      <Typography variant="h4" className={classes.title}>
+        Envio de Mensagens
       </Typography>
-      <Typography variant="h6" color="primary" className={classes.elementMargin}>
-      {i18n.t("messagesAPI.API.methods.title")}
-      </Typography>
-      <Typography component="div">
-        <ol>
-          <li>{i18n.t("messagesAPI.API.methods.messagesText")}</li>
-          <li>{i18n.t("messagesAPI.API.methods.messagesMidia")}</li>
-        </ol>
-      </Typography>
-      <Typography variant="h6" color="primary" className={classes.elementMargin}>
-      {i18n.t("messagesAPI.API.instructions.title")}
-      </Typography>
-      <Typography className={classes.elementMargin} component="div">
-        <b>{i18n.t("messagesAPI.API.instructions.comments")}</b><br />
-        <ul>
-          <li>{i18n.t("messagesAPI.API.instructions.comments1")}</li>
-          <li>
-          {i18n.t("messagesAPI.API.instructions.comments2")}
-            <ul>
-              <li>{i18n.t("messagesAPI.API.instructions.codeCountry")}</li>
-              <li>{i18n.t("messagesAPI.API.instructions.code")}</li>
-              <li>{i18n.t("messagesAPI.API.instructions.number")}</li>
-            </ul>
-          </li>
-        </ul>
-      </Typography>
-      <Typography variant="h6" color="primary" className={classes.elementMargin}>
-      {i18n.t("messagesAPI.API.text.title")}
-      </Typography>
-      <Grid container>
-        <Grid item xs={12} sm={6}>
-          <Typography className={classes.elementMargin} component="div">
-            <p>{i18n.t("messagesAPI.API.text.instructions")}</p>
-            <b>Endpoint: </b> {getEndpoint()} <br />
-            <b>Método: </b> POST <br />
-            <b>Headers: </b> Authorization Bearer (token registrado) e Content-Type (application/json) <br />
-            <b>Body: </b> {"{"} <br></br>
-             "number": "558599999999" <br></br>
-             "body": "Message" <br></br> 
-             "userId": ID usuário ou "" <br></br>
-             "queueId": ID Fila ou ""<br></br>
-             "sendSignature": Assinar mensagem - true/false <br></br>
-             "closeTicket": Encerrar o ticket - true/false<br></br>
-             {"}"} 
-          </Typography>
+
+      <Alert severity="warning" icon={<WarningIcon />} className={classes.alert}>
+        <AlertTitle>Instruções</AlertTitle>
+        Antes de enviar mensagens, é necessário o cadastro do token vinculado à conexão que enviará as mensagens. <br />Para realizar o cadastro acesse o menu 'Conexões', clique no botão editar da conexão e insira o token no devido campo.
+        <br />O número para envio não deve ter mascara ou caracteres especiais e deve ser composto por: Código do País+DDD+Número 5511999999999
+      </Alert>
+
+      <AppBar position="static" color="default" elevation={0}>
+        <Tabs value={tab} onChange={handleTabChange} indicatorColor="primary" textColor="primary" variant="fullWidth">
+          <Tab label="Mensagens de Texto" />
+          <Tab label="Mensagens de Mídia" />
+          <Tab label="Sincronização de Contatos" />
+        </Tabs>
+      </AppBar>
+
+      <TabPanel value={tab} index={0} classes={classes}>
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Exemplo de Requisição</Typography>
+            <pre className={classes.codeBlock}>
+              <code>
+                {`POST ${getEndpoint('/api/messages/send')}
+Host: ${window.location.host}
+Authorization: Bearer <seu_token>
+Content-Type: application/json
+
+{
+  "number": "5511999999999",
+  "body": "Sua mensagem de texto aqui",
+  "userId": "ID do usuário (opcional)",
+  "queueId": "ID da fila (opcional)"
+}`}
+              </code>
+            </pre>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Teste de Envio</Typography>
+            <Formik initialValues={{ token: '', number: '', body: '', userId: '', queueId: '' }} onSubmit={handleSendTextMessage}>
+              {({ isSubmitting }) => (
+                <Form className={classes.formContainer}>
+                  <Field as={TextField} name="token" label="Token Cadastrado" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="number" label="Número" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="body" label="Mensagem" variant="outlined" required multiline rows={4} className={classes.formField} />
+                  <Field as={TextField} name="userId" label="ID do Usuário (Opcional)" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="queueId" label="ID da Fila (Opcional)" variant="outlined" className={classes.formField} />
+                  <Button type="submit" color="primary" variant="contained" size="large" disabled={isSubmitting} className={classes.submitButton} endIcon={<SendIcon />}>
+                    {isSubmitting ? <CircularProgress size={24} /> : 'Enviar'}
+                  </Button>
+                </Form>
+              )}
+            </Formik>
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6}>
-          <Typography className={classes.elementMargin}>
-            <b>Teste de Envio</b>
-          </Typography>
-          {renderFormMessageText()}
+      </TabPanel>
+
+      <TabPanel value={tab} index={1} classes={classes}>
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Exemplo de Requisição</Typography>
+            <pre className={classes.codeBlock}>
+              <code>
+                {`POST ${getEndpoint('/api/messages/send')}
+Host: ${window.location.host}
+Authorization: Bearer <seu_token>
+Content-Type: multipart/form-data
+
+// FormData com os campos:
+// number: 5511999999999
+// body: Descrição da mídia (opcional)
+// medias: [Arquivo]`}
+              </code>
+            </pre>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Teste de Envio</Typography>
+            <Formik initialValues={{ token: '', number: '', body: '', userId: '', queueId: '' }} onSubmit={handleSendMediaMessage}>
+              {({ isSubmitting }) => (
+                <Form className={classes.formContainer}>
+                  <Field as={TextField} name="token" label="Token Cadastrado" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="number" label="Número" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="body" label="Descrição (Opcional)" variant="outlined" className={classes.formField} />
+                  <Button variant="contained" component="label">
+                    Escolher Arquivo
+                    <input type="file" hidden required onChange={(e) => setFile(e.target.files[0])} />
+                  </Button>
+                  {file && <Typography variant="body2">{file.name}</Typography>}
+                  <Button type="submit" color="primary" variant="contained" size="large" disabled={isSubmitting || !file} className={classes.submitButton} endIcon={<SendIcon />}>
+                    {isSubmitting ? <CircularProgress size={24} /> : 'Enviar'}
+                  </Button>
+                </Form>
+              )}
+            </Formik>
+          </Grid>
         </Grid>
-      </Grid>
-      <Typography variant="h6" color="primary" className={classes.elementMargin}>
-      {i18n.t("messagesAPI.API.media.title")}
-      </Typography>
-      <Grid container>
-        <Grid item xs={12} sm={6}>
-          <Typography className={classes.elementMargin} component="div">
-            <p>{i18n.t("messagesAPI.API.media.instructions")}</p>
-            <b>Endpoint: </b> {getEndpoint()} <br />
-            <b>Método: </b> POST <br />
-            <b>Headers: </b> Authorization Bearer (token cadastrado) e Content-Type (multipart/form-data) <br />
-            <b>FormData: </b> <br />
-            <ul>
-              <li>
-                <b>number: </b> 558599999999
-              </li>
-              <li>
-                <b>body:</b> Message
-              </li>
-              <li>
-                <b>userId:</b> ID usuário ou ""
-              </li>
-              <li>
-                <b>queueId:</b> ID da fila ou ""
-              </li>
-              <li>
-                <b>medias: </b> arquivo
-              </li>
-              <li>
-                <b>sendSignature:</b> Assinar mensagem true/false
-              </li>
-              <li>
-                <b>closeTicket:</b> Encerrar ticket true/false
-              </li>
-            </ul>
-          </Typography>
+      </TabPanel>
+
+      <TabPanel value={tab} index={2} classes={classes}>
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Exemplo de Requisição</Typography>
+            <pre className={classes.codeBlock}>
+              <code>
+                {`POST ${getEndpoint('/api/contacts/sync')}
+Host: ${window.location.host}
+Authorization: Bearer <seu_token>
+Content-Type: application/json
+
+{
+  "name": "Nome do Contato",
+  "number": "5511999999999",
+  "email": "email@exemplo.com",
+  "cpfCnpj": "123.456.789-00",
+  "representativeCode": "COD-007",
+  "city": "Cidade Exemplo",
+  "instagram": "@username",
+  "situation": "Ativo",
+  "fantasyName": "Nome Fantasia Exemplo",
+  "foundationDate": "2023-01-01",
+  "creditLimit": "5000.00",
+  "tags": "VIP, Cliente Antigo"
+}`}
+              </code>
+            </pre>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6">Teste de Sincronização</Typography>
+            <Formik 
+              initialValues={{ 
+                token: '', name: '', number: '', email: '', cpfCnpj: '', 
+                representativeCode: '', city: '', instagram: '', situation: '', 
+                fantasyName: '', foundationDate: '', creditLimit: '', tags: '' 
+              }} 
+              onSubmit={handleSyncContact}
+            >
+              {({ isSubmitting }) => (
+                <Form className={classes.formContainer}>
+                  <Field as={TextField} name="token" label="Token Cadastrado" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="name" label="Nome" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="number" label="Número" variant="outlined" required className={classes.formField} />
+                  <Field as={TextField} name="email" label="Email" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="cpfCnpj" label="CPF/CNPJ" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="representativeCode" label="Código do Representante" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="city" label="Cidade" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="instagram" label="Instagram" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="situation" label="Situação" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="fantasyName" label="Nome Fantasia" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="foundationDate" label="Data de Fundação" variant="outlined" className={classes.formField} type="date" InputLabelProps={{ shrink: true }} />
+                  <Field as={TextField} name="creditLimit" label="Limite de Crédito" variant="outlined" className={classes.formField} />
+                  <Field as={TextField} name="tags" label="Tags (separadas por vírgula)" variant="outlined" className={classes.formField} />
+                  <Button type="submit" color="primary" variant="contained" size="large" disabled={isSubmitting} className={classes.submitButton} endIcon={<SendIcon />}>
+                    {isSubmitting ? <CircularProgress size={24} /> : 'Sincronizar'}
+                  </Button>
+                </Form>
+              )}
+            </Formik>
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6}>
-          <Typography className={classes.elementMargin}>
-            <b>Teste de Envio</b>
-          </Typography>
-          {renderFormMessageMedia()}
-        </Grid>
-      </Grid>
+      </TabPanel>
     </Paper>
   );
 };

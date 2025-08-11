@@ -20,8 +20,44 @@ export async function ImportContactsService(
     let number = "";
     let email = "";
     let cpfCnpj = "";
+    let representativeCode = "";
+    let city = "";
+    let instagram = "";
+    let situation = "";
+    let fantasyName = "";
+    let foundationDate = null;
+    let creditLimit = "";
+
     if (has(row, "cpfCnpj") || has(row, "CPF/CNPJ") || has(row, "cpf") || has(row, "CPF")) {
       cpfCnpj = row["cpfCnpj"] || row["CPF/CNPJ"] || row["cpf"] || row["CPF"];
+    }
+
+    if (has(row, "representativeCode") || has(row, "Código do Representante")) {
+      representativeCode = row["representativeCode"] || row["Código do Representante"];
+    }
+
+    if (has(row, "city") || has(row, "Cidade")) {
+      city = row["city"] || row["Cidade"];
+    }
+
+    if (has(row, "instagram") || has(row, "Instagram")) {
+      instagram = row["instagram"] || row["Instagram"];
+    }
+
+    if (has(row, "situation") || has(row, "Situação")) {
+      situation = row["situation"] || row["Situação"];
+    }
+
+    if (has(row, "fantasyName") || has(row, "Nome Fantasia")) {
+      fantasyName = row["fantasyName"] || row["Nome Fantasia"];
+    }
+
+    if (has(row, "foundationDate") || has(row, "Data de Fundação")) {
+      foundationDate = row["foundationDate"] || row["Data de Fundação"];
+    }
+
+    if (has(row, "creditLimit") || has(row, "Limite de Crédito")) {
+      creditLimit = row["creditLimit"] || row["Limite de Crédito"];
     }
 
     if (has(row, "nome") || has(row, "Nome")) {
@@ -47,7 +83,20 @@ export async function ImportContactsService(
       email = row["email"] || row["e-mail"] || row["Email"] || row["E-mail"];
     }
 
-    return { name, number, email, cpfCnpj, companyId };
+    return {
+      name,
+      number,
+      email,
+      cpfCnpj,
+      representativeCode,
+      city,
+      instagram,
+      situation,
+      fantasyName,
+      foundationDate,
+      creditLimit,
+      companyId
+    };
   });
 
 

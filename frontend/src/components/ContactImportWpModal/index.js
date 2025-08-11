@@ -123,11 +123,33 @@ const ContactImportWpModal = ({ isOpen, handleClose, selectedTags, hideNum, user
         name: "João",
         number: "5599999999999",
         email: "",
+        cpfCnpj: "",
+        representativeCode: "",
+        city: "",
+        instagram: "",
+        situation: "",
+        fantasyName: "",
+        foundationDate: "",
+        creditLimit: "",
+        tags: ""
       });
     }
 
     const exportData = allDatas.map((e) => {
-      return { name: e.name, number: (hideNum && userProfile === "user" ? e.isGroup ? e.number : e.number.slice(0, -6) + "**-**" + e.number.slice(-2) : e.number), email: e.email, tags: e.tags };
+      return { 
+        name: e.name, 
+        number: (hideNum && userProfile === "user" ? e.isGroup ? e.number : e.number.slice(0, -6) + "**-**" + e.number.slice(-2) : e.number), 
+        email: e.email,
+        cpfCnpj: e.cpfCnpj || "",
+        representativeCode: e.representativeCode || "",
+        city: e.city || "",
+        instagram: e.instagram || "",
+        situation: e.situation || "",
+        fantasyName: e.fantasyName || "",
+        foundationDate: e.foundationDate || "",
+        creditLimit: e.creditLimit || "",
+        tags: e.tags || ""
+      };
     });
     //console.log({ allDatas });
     let wb = XLSX.utils.book_new();

@@ -511,7 +511,7 @@ const getContactMessage = async (msg: proto.IWebMessageInfo, wbot: Session) => {
       }
     : {
         id: msg.key.remoteJid,
-        name: msg.key.fromMe ? rawNumber : msg.pushName
+        name: msg.key.fromMe ? rawNumber : msg.pushName || rawNumber
       };
 };
 

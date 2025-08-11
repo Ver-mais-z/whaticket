@@ -139,10 +139,15 @@ const CampaignsPhrase = () => {
 
   const getCampaigns =  async() => {
     setLoading(true);
-    await api.get("/flowcampaign").then(res => {
-      setCampaignFlows(res.data.flow);
+    try {
+      const res = await api.get("/flowcampaign");
+      setCampaignFlows(res.data.flow || []); // Garante que seja sempre um array
+    } catch (err) {
+      toastError(err);
+      setCampaignFlows([]); // Define como array vazio em caso de erro
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   const onSaveModal = () => {

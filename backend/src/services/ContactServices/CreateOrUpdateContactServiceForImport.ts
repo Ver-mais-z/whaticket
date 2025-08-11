@@ -32,9 +32,9 @@ const CreateOrUpdateContactServiceForImport = async ({
   isGroup,
   email = "",
   commandBot = "",
-  extraInfo = [], 
+  extraInfo = [],
   companyId,
-  creditLimit = "",
+  creditLimit,
   cpfCnpj,
   representativeCode,
   city,
@@ -45,61 +45,58 @@ const CreateOrUpdateContactServiceForImport = async ({
 }: Request): Promise<Contact> => {
   const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
 
+  // Convert Excel serial date to JS Date object
+  let finalFoundationDate = foundationDate;
+  if (typeof foundationDate === 'number' && foundationDate > 0) {
+    // Formula to convert Excel serial number for dates (starting from 1900) to JS Date
+    const date = new Date((foundationDate - 25569) * 86400 * 1000);
+    finalFoundationDate = date;
+  }
+
+  const contactData = {
+    name,
+    number,
+    profilePicUrl,
+    isGroup,
+    email,
+    commandBot,
+    extraInfo,
+    companyId,
+    creditLimit: creditLimit ? String(creditLimit) : "",
+    cpfCnpj: cpfCnpj ? String(cpfCnpj) : undefined,
+    representativeCode: representativeCode ? String(representativeCode) : undefined,
+    city,
+    instagram,
+    situation: situation || 'Ativo',
+    fantasyName,
+    foundationDate: finalFoundationDate
+  };
+
   const io = getIO();
   let contact: Contact | null;
 
-  contact = await Contact.findOne({ where: { number , companyId } });
+  contact = await Contact.findOne({ where: { number, companyId } });
 
   if (contact) {
-    const updateData: any = { 
-      name, 
-      profilePicUrl,
-      cpfCnpj,
-      representativeCode,
-      city,
-      instagram,
+    await contact.update({
+      ...contactData,
       situation: situation || contact.situation,
-      fantasyName,
-      foundationDate,
-      creditLimit: creditLimit || contact.creditLimit
-    };
-    
-    if (contact.companyId === null) {
-      updateData.companyId = companyId;
-    }
-    
-    await contact.update(updateData);
-
-      io.of(String(companyId))
-  .emit(`company-${companyId}-contact`, {
-      action: "update",
-      contact
-    });
-  } else {
-    contact = await Contact.create({
-      name,
-      companyId,
-      number,
-      profilePicUrl,
-      email,
-      commandBot,
-      isGroup,
-      extraInfo,
-      creditLimit,
-      cpfCnpj,
-      representativeCode,
-      city,
-      instagram,
-      situation: situation || 'Ativo',
-      fantasyName,
-      foundationDate
+      creditLimit: creditLimit ? String(creditLimit) : contact.creditLimit
     });
 
     io.of(String(companyId))
-  .emit(`company-${companyId}-contact`, {
-      action: "create",
-      contact
-    });
+      .emit(`company-${companyId}-contact`, {
+        action: "update",
+        contact
+      });
+  } else {
+    contact = await Contact.create(contactData);
+
+    io.of(String(companyId))
+      .emit(`company-${companyId}-contact`, {
+        action: "create",
+        contact
+      });
   }
 
   return contact;

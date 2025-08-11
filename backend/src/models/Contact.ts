@@ -80,6 +80,13 @@ class Contact extends Model<Contact> {
           }
         }
       }
+    },
+    set(value: string | number) {
+      if (value) {
+        (this as any).setDataValue('cpfCnpj', String(value));
+      } else {
+        (this as any).setDataValue('cpfCnpj', null);
+      }
     }
   })
   cpfCnpj: string;
@@ -114,7 +121,16 @@ class Contact extends Model<Contact> {
 
   @Column({
     type: 'DATEONLY',
-    allowNull: true
+    allowNull: true,
+    set(value: Date | number) {
+      if (typeof value === 'number' && value > 0) {
+        // Convert Excel serial date to JS Date object
+        const date = new Date((value - 25569) * 86400 * 1000);
+        (this as any).setDataValue('foundationDate', date);
+      } else {
+        (this as any).setDataValue('foundationDate', value);
+      }
+    }
   })
   foundationDate: Date;
 
