@@ -13,6 +13,12 @@ services:
       DB_USER: postgres         # usuário padrão, ajuste conforme sua configuração
       DB_PASS: efe487b6a861100fb704ad9f5c160cb8 # senha igual à do seu banco
       TZ: America/Sao_Paulo
+      FRONTEND_URL: http://localhost
+      REDIS_URI_ACK: redis://redis:6379
+      BULL_USER: admin
+      BULL_PASS: admin
+      JWT_SECRET: supersecret
+      JWT_REFRESH_SECRET: supersecretrefresh
     networks:
       - nobreluminarias
     depends_on:
@@ -38,4 +44,3 @@ services:
 networks:
   nobreluminarias:
     external: true
-
