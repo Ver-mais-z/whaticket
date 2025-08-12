@@ -60,11 +60,11 @@ const useStyles = makeStyles(theme => ({
 
 const ContactSchema = Yup.object().shape({
 	name: Yup.string()
-		.min(2, "Too Short!")
-		.max(250, "Too Long!")
-		.required("Required"),
-	number: Yup.string().min(8, "Too Short!").max(50, "Too Long!"),
-	email: Yup.string().email("Invalid email"),
+		.min(2, "Parâmetros incompletos!")
+		.max(250, "Parâmetros acima do esperado!")
+		.required("Obrigatório"),
+	number: Yup.string().min(8, "Parâmetros incompletos!").max(50, "Parâmetros acima do esperado!"),
+	email: Yup.string().email("E-mail inválido"),
     cpfCnpj: Yup.string()
         .nullable()
         .test('cpfCnpj-validation', 'CPF/CNPJ inválido', (value) => {
@@ -202,17 +202,40 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 										/>
 									</Grid>
 									<Grid item xs={12} md={6}>
-										<Field
-											as={TextField}
-											label={i18n.t("contactModal.form.number")}
-											name="number"
-											error={touched.number && Boolean(errors.number)}
-											helperText={touched.number && errors.number}
-											placeholder="5513912344321"
-											variant="outlined"
-											margin="dense"
-											fullWidth
-										/>
+										<Field name="number">
+											{({ field, form }) => {
+												const cleanValue = field.value?.replace(/\D/g, '') || '';
+												// Mask for Brazilian phone numbers: 55 (country code) + DDD (2 digits) + Number (9 digits)
+												// Example: 55 (XX) 9XXXX-XXXX
+												const mask = "+55 (99) 99999-9999";
+												return (
+													<InputMask
+														{...field}
+														mask={mask}
+														maskChar={null}
+														onChange={(e) => {
+															const value = e.target.value;
+															// Remove all non-digit characters
+															const cleanValue = value.replace(/\D/g, '');
+															form.setFieldValue('number', cleanValue);
+														}}
+													>
+														{(inputProps) => (
+															<TextField
+																{...inputProps}
+																label={i18n.t("contactModal.form.number")}
+																variant="outlined"
+																margin="dense"
+																fullWidth
+																error={touched.number && Boolean(errors.number)}
+																helperText={touched.number && errors.number}
+																placeholder="+55 (XX) XXXXX-XXXX"
+															/>
+														)}
+													</InputMask>
+												)
+											}}
+										</Field>
 									</Grid>
 									<Grid item xs={12} md={6}>
 										<Field
