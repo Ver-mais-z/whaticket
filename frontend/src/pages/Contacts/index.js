@@ -8,38 +8,30 @@ import React, {
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
-import { makeStyles, useTheme } from "@material-ui/core/styles"; // Certifique-se que 'useTheme' está importado
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableHead from "@material-ui/core/TableHead";
-import TableRow from "@material-ui/core/TableRow";
-import Paper from "@material-ui/core/Paper";
-import Button from "@material-ui/core/Button";
-import Avatar from "@material-ui/core/Avatar";
+import {
+    Search,
+    Trash2,
+    Edit,
+    Lock,
+    Unlock,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    FileUp,
+    FileDown,
+    Plus,
+    Filter,
+    X,
+    Phone,
+} from "lucide-react";
 import { Facebook, Instagram, WhatsApp } from "@material-ui/icons";
-import SearchIcon from "@material-ui/icons/Search";
-
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
-import Checkbox from "@material-ui/core/Checkbox"; // Importar Checkbox
-
-import IconButton from "@material-ui/core/IconButton";
-import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
-import CheckCircleIcon from "@material-ui/icons/CheckCircle";
-import CancelIcon from "@material-ui/icons/Cancel";
-import BlockIcon from "@material-ui/icons/Block";
-
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
 import { i18n } from "../../translate/i18n";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 
@@ -48,15 +40,10 @@ import { Can } from "../../components/Can";
 import NewTicketModal from "../../components/NewTicketModal";
 import { TagsFilter } from "../../components/TagsFilter";
 import PopupState, { bindTrigger, bindMenu } from "material-ui-popup-state";
+import { Menu, MenuItem } from "@material-ui/core";
+import { ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
 import formatSerializedId from '../../utils/formatSerializedId';
 import { v4 as uuidv4 } from "uuid";
-
-import {
-    ArrowDropDown,
-    Backup,
-    ContactPhone,
-} from "@material-ui/icons";
-import { Menu, MenuItem } from "@material-ui/core";
 
 import ContactImportWpModal from "../../components/ContactImportWpModal";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
@@ -106,19 +93,8 @@ const reducer = (state, action) => {
     }
 };
 
-const useStyles = makeStyles((theme) => ({
-    mainPaper: {
-        flex: 1,
-        padding: theme.spacing(1),
-        overflowY: "scroll",
-        ...theme.scrollbarStyles,
-    },
-}));
-
 const Contacts = () => {
-    const classes = useStyles();
     const history = useHistory();
-    const theme = useTheme(); // Adicione esta linha para acessar o tema
 
     const { user, socket } = useContext(AuthContext);
 
@@ -223,13 +199,14 @@ const Contacts = () => {
                 dispatch({ type: "UPDATE_CONTACTS", payload: data.contact });
             }
 
-            if (data.action === "delete") {
-                dispatch({ type: "DELETE_CONTACT", payload: +data.contactId });
-                // Remover o contato deletado da lista de selecionados, se estiver lá
-                setSelectedContactIds((prevSelected) =>
-                    prevSelected.filter((id) => id !== +data.contactId) // Use +data.contactId para garantir que seja número
-                );
-            }
+        if (data.action === "delete") {
+            const contactIdNum = Number(data.contactId);
+            dispatch({ type: "DELETE_CONTACT", payload: contactIdNum });
+            // Remover o contato deletado da lista de selecionados, se estiver lá
+            setSelectedContactIds((prevSelected) =>
+                prevSelected.filter((id) => id !== contactIdNum)
+            );
+        }
         };
         socket.on(`company-${companyId}-contact`, onContactEvent);
 
@@ -339,7 +316,6 @@ const Contacts = () => {
         } catch (err) {
             toastError(err);
         }
-        setDeletingContact(null);
         setSearchParam("");
         setPageNumber(1);
         setBlockingContact(null);
@@ -352,7 +328,6 @@ const Contacts = () => {
         } catch (err) {
             toastError(err);
         }
-        setDeletingContact(null);
         setSearchParam("");
         setPageNumber(1);
         setUnBlockingContact(null);
@@ -397,350 +372,332 @@ const Contacts = () => {
         }
     };
 
+    const formatPhoneNumber = (number) => {
+        if (!number) return "";
+        const cleaned = ('' + number).replace(/\D/g, '');
+        if (cleaned.startsWith("55") && cleaned.length === 13) {
+            const match = cleaned.match(/^(\d{2})(\d{2})(\d{5})(\d{4})$/);
+            if (match) {
+                return `BR (${match[2]}) ${match[3]}-${match[4]}`;
+            }
+        }
+        return number;
+    };
+
     return (
-        <MainContainer className={classes.mainContainer}>
-            <NewTicketModal
-                modalOpen={newTicketModalOpen}
-                initialContact={contactTicket}
-                onClose={(ticket) => {
-                    handleCloseOrOpenTicket(ticket);
-                }}
-            />
-            <ContactModal
-                open={contactModalOpen}
-                onClose={handleCloseContactModal}
-                aria-labelledby="form-dialog-title"
-                contactId={selectedContactId}
-            ></ContactModal>
-            
-            <ConfirmationModal
-                title={
-                    deletingContact
-                        ? `${i18n.t(
-                            "contacts.confirmationModal.deleteTitle"
-                        )} ${deletingContact.name}?`
-                        : blockingContact
-                            ? `Bloquear Contato ${blockingContact.name}?`
-                            : unBlockingContact
-                                ? `Desbloquear Contato ${unBlockingContact.name}?`
-                                : ImportContacts
-                                    ? `${i18n.t("contacts.confirmationModal.importTitlte")}`
-                                    : `${i18n.t("contactListItems.confirmationModal.importTitlte")}`
-                }
-                onSave={onSave}
-                isCellPhone={ImportContacts}
-                open={confirmOpen}
-                onClose={setConfirmOpen}
-                onConfirm={(e) =>
-                    deletingContact
-                        ? handleDeleteContact(deletingContact.id)
-                        : blockingContact
-                            ? handleBlockContact(blockingContact.id)
-                            : unBlockingContact
-                                ? handleUnBlockContact(unBlockingContact.id)
-                                : ImportContacts
-                                    ? handleimportContact()
-                                    : handleImportExcel()
-                }
-            >
-                {exportContact
-                    ?
-                    `${i18n.t("contacts.confirmationModal.exportContact")}`
-                    : deletingContact
-                        ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
-                        : blockingContact
-                            ? `${i18n.t("contacts.confirmationModal.blockContact")}`
-                            : unBlockingContact
-                                ? `${i18n.t("contacts.confirmationModal.unblockContact")}`
-                                : ImportContacts
-                                    ? `Escolha de qual conexão deseja importar`
-                                    : `${i18n.t(
-                                        "contactListItems.confirmationModal.importMessage"
-                                    )}`}
-            </ConfirmationModal>
+        <MainContainer>
+            <div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900">
+                <NewTicketModal
+                    modalOpen={newTicketModalOpen}
+                    initialContact={contactTicket}
+                    onClose={(ticket) => {
+                        handleCloseOrOpenTicket(ticket);
+                    }}
+                />
+                <ContactModal
+                    open={contactModalOpen}
+                    onClose={handleCloseContactModal}
+                    aria-labelledby="form-dialog-title"
+                    contactId={selectedContactId}
+                ></ContactModal>
 
-            {/* NOVO MODAL DE CONFIRMAÇÃO PARA DELEÇÃO EM MASSA */}
-            <ConfirmationModal
-                title={`Tem certeza que deseja deletar ${selectedContactIds.length} contatos selecionados?`}
-                open={confirmDeleteManyOpen}
-                onClose={() => setConfirmDeleteManyOpen(false)}
-                onConfirm={handleDeleteSelectedContacts}
-            >
-                Essa ação é irreversível.
-            </ConfirmationModal>
-
-            <ConfirmationModal
-                title={i18n.t("contacts.confirmationModal.importChat")}
-                open={confirmChatsOpen}
-                onClose={setConfirmChatsOpen}
-                onConfirm={(e) => handleimportChats()}
-            >
-                {i18n.t("contacts.confirmationModal.wantImport")}
-            </ConfirmationModal>
-
-            <MainHeader>
-                <Title>{i18n.t("contacts.title")} ({contacts.length})</Title>
-                <MainHeaderButtonsWrapper>
-                    <TagsFilter
-                        onFiltered={handleSelectedTags}
-                    />
-                    <TextField
-                        placeholder={i18n.t("contacts.searchPlaceholder")}
-                        type="search"
-                        value={searchParam}
-                        onChange={handleSearch}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon color="secondary" />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    <PopupState variant="popover" popupId="demo-popup-menu">
-                        {(popupState) => (
-                            <React.Fragment>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    {...bindTrigger(popupState)}
-                                    style={{ color: 'white' }}
-                                >
-                                    Importar / Exportar
-                                    <ArrowDropDown />
-                                </Button>
-                                <Menu {...bindMenu(popupState)}>
-                                    <MenuItem
-                                        onClick={() => {
-                                            setConfirmOpen(true);
-                                            setImportContacts(true);
-                                            popupState.close();
-                                        }}
-                                    >
-                                        <ContactPhone
-                                            fontSize="small"
-                                            color="primary"
-                                            style={{
-                                                marginRight: 10,
-                                            }}
-                                        />
-                                        {i18n.t("contacts.menu.importYourPhone")}
-                                    </MenuItem>
-                                    <MenuItem
-                                        onClick={() => { setImportContactModalOpen(true) }}
-
-                                    >
-                                        <Backup
-                                            fontSize="small"
-                                            color="primary"
-                                            style={{
-                                                marginRight: 10,
-                                            }}
-                                        />
-                                        {i18n.t("contacts.menu.importToExcel")}
-
-                                    </MenuItem>
-                                </Menu>
-                            </React.Fragment>
-                        )}
-                    </PopupState>
-
-                    {/* BOTÃO DE DELETAR SELECIONADOS PADRONIZADO COM A COR DO WHITELABEL E TEXTO BRANCO */}
-					<Button
-						variant="contained"
-						onClick={() => setConfirmDeleteManyOpen(true)}
-						disabled={selectedContactIds.length === 0 || loading}
-						style={{
-							marginRight: 8,
-							backgroundColor: theme.palette.primary.main, // Utiliza a cor primária do tema
-							color: 'white' // Adiciona a cor do texto como branco
-						}}
-					>
-						Deletar Selecionados ({selectedContactIds.length})
-					</Button>
-
-					<Button
-						variant="contained"
-						color="primary"
-						onClick={handleOpenContactModal}
-						style={{ color: 'white' }}
-					>
-						{i18n.t("contacts.buttons.add")}
-					</Button>
-				</MainHeaderButtonsWrapper>
-			</MainHeader>
-
-            {importContactModalOpen && (
                 <ContactImportWpModal
                     isOpen={importContactModalOpen}
                     handleClose={() => setImportContactModalOpen(false)}
-                    selectedTags={selectedTags}
-                    hideNum={hideNum}
-                    userProfile={user.profile}
                 />
-            )}
-            <Paper
-                className={classes.mainPaper}
-                variant="outlined"
-                onScroll={handleScroll}
-            >
-                <>
-                    <input
-                        style={{ display: "none" }}
-                        id="upload"
-                        name="file"
-                        type="file"
-                        accept=".xls,.xlsx"
-                        onChange={() => {
-                            setConfirmOpen(true);
-                        }}
-                        ref={fileUploadRef}
-                    />
-                </>
-                <Table size="small">
-                    <TableHead>
-                        <TableRow>
-                            {/* NOVO CHECKBOX PARA SELECIONAR TUDO */}
-                            <TableCell padding="checkbox">
-                                <Checkbox
-                                    checked={isSelectAllChecked}
-                                    onChange={handleSelectAllContacts}
-                                    inputProps={{ "aria-label": "Selecionar todos os contatos" }}
-                                />
-                            </TableCell>
-                            <TableCell style={{ paddingRight: 0 }} /> {/* Coluna para Avatar */}
-                            <TableCell>
-                                {i18n.t("contacts.table.name")}
-                            </TableCell>
-                            <TableCell align="center">
-                                {i18n.t("contacts.table.whatsapp")}
-                            </TableCell>
-                            <TableCell align="center">
-                                {i18n.t("contacts.table.email")}
-                            </TableCell>
-                            <TableCell align="center">
-                                {"Cidade"}
-                            </TableCell>
-                            <TableCell align="center">{"Status"}</TableCell>
-                            <TableCell align="center">
-                                {i18n.t("contacts.table.actions")}
-                            </TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        <>
-                            {contacts.map((contact) => (
-                                <TableRow key={contact.id}>
-                                    {/* NOVO CHECKBOX INDIVIDUAL */}
-                                    <TableCell padding="checkbox">
-                                        <Checkbox
-                                            checked={selectedContactIds.includes(contact.id)}
-                                            onChange={handleToggleSelectContact(contact.id)}
-                                            inputProps={{ "aria-label": `Selecionar contato ${contact.name}` }}
-                                        />
-                                    </TableCell>
-                                    <TableCell style={{ paddingRight: 0 }}>
-                                        {<Avatar src={`${contact?.urlPicture}`} />}
-                                    </TableCell>
-                                    <TableCell>{contact.name}</TableCell>
-                                    <TableCell align="center">
-                                        {((enableLGPD && hideNum && user.profile === "user")
-                                            ? contact.isGroup
-                                                ? contact.number :
-                                                formatSerializedId(contact?.number) === null ? contact.number.slice(0, -6) + "**-**" + contact?.number.slice(-2) :
-                                                    formatSerializedId(contact?.number)?.slice(0, -6) + "**-**" + contact?.number?.slice(-2) :
-                                                    contact.isGroup ? contact.number : formatSerializedId(contact?.number)
-                                        )}
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        {contact.email}
-                                    </TableCell>
-                                    <TableCell align="center">{contact.city}</TableCell>
-                                    <TableCell align="center">
-                                        {contact.active ? (
-                                            <CheckCircleIcon
-                                                style={{ color: "green" }}
-                                                fontSize="small"
-                                            />
-                                        ) : (
-                                            <CancelIcon
-                                                style={{ color: "red" }}
-                                                fontSize="small"
-                                            />
-                                        )}
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        <IconButton
-                                            size="small"
-                                            disabled={!contact.active}
-                                            onClick={() => {
-                                                setContactTicket(contact);
-                                                setNewTicketModalOpen(true);
-                                            }}
-                                        >
-                                            {contact.channel === "whatsapp" && (<WhatsApp style={{ color: "green" }} />)}
-                                            {contact.channel === "instagram" && (<Instagram style={{ color: "purple" }} />)}
-                                            {contact.channel === "facebook" && (<Facebook style={{ color: "blue" }} />)}
-                                        </IconButton>
 
-                                        <IconButton
-                                            size="small"
-                                            onClick={() =>
-                                                hadleEditContact(contact.id)
-                                            }
-                                        >
-                                            <EditIcon color="secondary" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            onClick={
-                                                contact.active
-                                                    ? () => {
-                                                        setConfirmOpen(true);
-                                                        setBlockingContact(
-                                                            contact
-                                                        );
-                                                    }
-                                                    : () => {
-                                                        setConfirmOpen(true);
-                                                        setUnBlockingContact(
-                                                            contact
-                                                        );
-                                                    }
-                                            }
-                                        >
-                                            {contact.active ? (
-                                                <BlockIcon color="secondary" />
-                                            ) : (
-                                                <CheckCircleIcon color="secondary" />
-                                            )}
-                                        </IconButton>
-                                        <Can
-                                            role={user.profile}
-                                            perform="contacts-page:deleteContact"
-                                            yes={() => (
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        setConfirmOpen(true);
-                                                        setDeletingContact(
-                                                            contact
-                                                        );
-                                                    }}
-                                                >
-                                                    <DeleteOutlineIcon color="secondary" />
-                                                </IconButton>
-                                            )}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {loading && <TableRowSkeleton avatar columns={6} />}
-                        </>
-                    </TableBody>
-                </Table>
-            </Paper>
-        </MainContainer >
+                <ConfirmationModal
+                    title={
+                        deletingContact
+                            ? `${i18n.t(
+                                "contacts.confirmationModal.deleteTitle"
+                            )} ${deletingContact.name}?`
+                            : blockingContact
+                                ? `Bloquear Contato ${blockingContact.name}?`
+                                : unBlockingContact
+                                    ? `Desbloquear Contato ${unBlockingContact.name}?`
+                                    : ImportContacts
+                                        ? `${i18n.t("contacts.confirmationModal.importTitlte")}`
+                                        : `${i18n.t("contactListItems.confirmationModal.importTitlte")}`
+                    }
+                    onSave={onSave}
+                    isCellPhone={ImportContacts}
+                    open={confirmOpen}
+                    onClose={setConfirmOpen}
+                    onConfirm={(e) =>
+                        deletingContact
+                            ? handleDeleteContact(deletingContact.id)
+                            : blockingContact
+                                ? handleBlockContact(blockingContact.id)
+                                : unBlockingContact
+                                    ? handleUnBlockContact(unBlockingContact.id)
+                                    : ImportContacts
+                                        ? handleimportContact()
+                                        : handleImportExcel()
+                    }
+                >
+                    {exportContact
+                        ?
+                        `${i18n.t("contacts.confirmationModal.exportContact")}`
+                        : deletingContact
+                            ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
+                            : blockingContact
+                                ? `${i18n.t("contacts.confirmationModal.blockContact")}`
+                                : unBlockingContact
+                                    ? `${i18n.t("contacts.confirmationModal.unblockContact")}`
+                                    : ImportContacts
+                                        ? `Escolha de qual conexão deseja importar`
+                                        : `${i18n.t(
+                                            "contactListItems.confirmationModal.importMessage"
+                                        )}`}
+                </ConfirmationModal>
+
+                {/* NOVO MODAL DE CONFIRMAÇÃO PARA DELEÇÃO EM MASSA */}
+                <ConfirmationModal
+                    title={`Tem certeza que deseja deletar ${selectedContactIds.length} contatos selecionados?`}
+                    open={confirmDeleteManyOpen}
+                    onClose={() => setConfirmDeleteManyOpen(false)}
+                    onConfirm={handleDeleteSelectedContacts}
+                >
+                    Essa ação é irreversível.
+                </ConfirmationModal>
+
+                <ConfirmationModal
+                    title={i18n.t("contacts.confirmationModal.importChat")}
+                    open={confirmChatsOpen}
+                    onClose={setConfirmChatsOpen}
+                    onConfirm={(e) => handleimportChats()}
+                >
+                    {i18n.t("contacts.confirmationModal.wantImport")}
+                </ConfirmationModal>
+
+                {/* Cabeçalho */}
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
+                        {i18n.t("contacts.title")}
+                        <span className="text-lg font-normal text-gray-500 dark:text-gray-400 ml-2">
+                            ({contacts.length})
+                        </span>
+                    </h1>
+                </header>
+
+                {/* Barra de Ações e Filtros */}
+<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 md:flex-nowrap">
+  {/* Filtros e Busca (Esquerda) */}
+  <div className="w-full flex items-center gap-2 flex-1 min-w-0">
+    <div className="relative">
+      <TagsFilter onFiltered={handleSelectedTags} />
+    </div>
+
+    {/* Busca com largura limitada */}
+    <div className="relative flex-1 min-w-[260px] max-w-[620px]">
+      <input
+        type="text"
+        placeholder="Buscar por nome, telefone, cidade, cnpj/cpf, cod. representante ou email..."
+        value={searchParam}
+        onChange={handleSearch}
+        className="w-full h-10 pl-10 pr-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+    </div>
+  </div>
+
+  {/* Ações Principais (Direita) */}
+  <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap">
+    <PopupState variant="popover" popupId="demo-popup-menu">
+      {(popupState) => (
+        <>
+          <button
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+            {...bindTrigger(popupState)}
+          >
+            Importar/Exportar
+            <ArrowDropDown />
+          </button>
+          <Menu {...bindMenu(popupState)}>
+            <MenuItem onClick={() => { setConfirmOpen(true); setImportContacts(true); popupState.close(); }}>
+              <ContactPhone fontSize="small" color="primary" style={{ marginRight: 10 }} />
+              {i18n.t("contacts.menu.importYourPhone")}
+            </MenuItem>
+            <MenuItem onClick={() => { setImportContactModalOpen(true) }}>
+              <Backup fontSize="small" color="primary" style={{ marginRight: 10 }} />
+              {i18n.t("contacts.menu.importToExcel")}
+            </MenuItem>
+          </Menu>
+        </>
+      )}
+    </PopupState>
+
+    <button
+      onClick={() => setConfirmDeleteManyOpen(true)}
+      disabled={selectedContactIds.length === 0 || loading}
+      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-red-300 dark:disabled:bg-red-800 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap"
+    >
+      <Trash2 className="w-4 h-4 mr-2" />
+      Deletar ({selectedContactIds.length})
+    </button>
+
+    <button
+      onClick={handleOpenContactModal}
+      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center whitespace-nowrap"
+    >
+      <Plus className="w-4 h-4 mr-2" />
+      Novo Contato
+    </button>
+  </div>
+</div>
+
+                {/* Tabela de Contatos (Desktop) */}
+                <div className="hidden md:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                            <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 sticky top-0 z-10">
+                                <tr>
+                                    <th scope="col" className="p-4">
+                                        <input type="checkbox"
+                                            checked={isSelectAllChecked}
+                                            onChange={handleSelectAllContacts}
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                    </th>
+                                    <th scope="col" className="px-6 py-3">Nome</th>
+                                    <th scope="col" className="px-6 py-3">WhatsApp</th>
+                                    <th scope="col" className="px-6 py-3">Email</th>
+                                    <th scope="col" className="px-6 py-3">Cidade/UF</th>
+                                    <th scope="col" className="px-6 py-3">Tags</th>
+                                    <th scope="col" className="px-6 py-3">Status</th>
+                                    <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {contacts.map((contact) => (
+                                    <tr key={contact.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                        <td className="w-4 p-4">
+                                            <input type="checkbox"
+                                                checked={selectedContactIds.includes(contact.id)}
+                                                onChange={handleToggleSelectContact(contact.id)}
+                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                        </td>
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300">
+                                                {contact.name.charAt(0)}
+                                            </div>
+                                            {contact.name}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {formatPhoneNumber(contact.number)}
+                                        </td>
+                                        <td className="px-6 py-4">{contact.email}</td>
+                                        <td className="px-6 py-4">{contact.city}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1">
+                                                {contact.tags.map((tag) => (
+                                                    <span
+                                                        key={tag.id}
+                                                        className="px-2 py-1 text-xs font-medium text-white rounded-full"
+                                                        style={{ backgroundColor: tag.color }}
+                                                    >
+                                                        {tag.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${contact.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
+                                                {contact.active ? 'Ativo' : 'Inativo'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"><WhatsApp className="w-5 h-5" /></button>
+                                                <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"><Edit className="w-5 h-5" /></button>
+                                                <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                                                    {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                                </button>
+                                                <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"><Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {loading && <TableRowSkeleton avatar columns={7} />}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/* Paginação da Tabela */}
+                    <nav className="flex items-center justify-between p-4" aria-label="Table navigation">
+                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">Mostrando <span className="font-semibold text-gray-900 dark:text-white">1-10</span> de <span className="font-semibold text-gray-900 dark:text-white">1000</span></span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">Itens por página:</span>
+                            <select className="text-sm bg-gray-50 border border-gray-300 rounded-md p-1 dark:bg-gray-700 dark:border-gray-600">
+                                <option>25</option>
+                                <option>50</option>
+                                <option>100</option>
+                            </select>
+                        </div>
+                        <ul className="inline-flex items-center -space-x-px">
+                            <li><a href="#" className="flex items-center justify-center px-3 h-8 ml-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronsLeft className="w-5 h-5" /></a></li>
+                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronLeft className="w-5 h-5" /></a></li>
+                            <li><a href="#" aria-current="page" className="flex items-center justify-center px-3 h-8 text-blue-600 border border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">1</a></li>
+                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">2</a></li>
+                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronRight className="w-5 h-5" /></a></li>
+                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronsRight className="w-5 h-5" /></a></li>
+                        </ul>
+                    </nav>
+                </div>
+
+                {/* Lista de Contatos (Mobile) */}
+                <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {contacts.map((contact) => (
+                        <div key={contact.id} className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-lg text-gray-600 dark:text-gray-300">
+                                        {contact.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-gray-900 dark:text-white">{contact.name}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{contact.email}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="p-1 text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><WhatsApp className="w-5 h-5" /></button>
+                                    <button onClick={() => hadleEditContact(contact.id)} className="p-1 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Edit className="w-5 h-5" /></button>
+                                    <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                                        {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                    </button>
+                                    <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="p-1 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Trash2 className="w-5 h-5" /></button>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{formatPhoneNumber(contact.number)}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{contact.city}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {contact.tags.map((tag) => (
+                                    <span
+                                        key={tag.id}
+                                        className="px-2 py-1 text-xs font-medium text-white rounded-full"
+                                        style={{ backgroundColor: tag.color }}
+                                    >
+                                        {tag.name}
+                                    </span>
+                                ))}
+                            </div>
+                            <div>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${contact.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
+                                    {contact.active ? 'Ativo' : 'Inativo'}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {/* Paginação Mobile */}
+                <div className="md:hidden flex items-center justify-between mt-4">
+                    <button className="p-2 text-gray-500 bg-white border rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"><ChevronLeft className="w-5 h-5" /></button>
+                    <span className="text-sm text-gray-700 dark:text-gray-200">1-25 de 3.254</span>
+                    <button className="p-2 text-gray-500 bg-white border rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"><ChevronRight className="w-5 h-5" /></button>
+                </div>
+            </div>
+        </MainContainer>
     );
 };
 

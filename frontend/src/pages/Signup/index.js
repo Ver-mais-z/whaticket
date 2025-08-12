@@ -52,16 +52,16 @@ const useStyles = makeStyles((theme) => ({
 
 const UserSchema = Yup.object().shape({
   name: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
-    .required("Required"),
+    .min(2, "Parâmetros incompletos!")
+    .max(50, "Parâmetros acima do esperado!")
+    .required("Obrigatório"),
   companyName: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
-    .required("Required"),
-  password: Yup.string().min(5, "Too Short!").max(50, "Too Long!"),
-  email: Yup.string().email("Invalid email").required("Required"),
-  phone: Yup.string().required("Required"),
+    .min(2, "Parâmetros incompletos!")
+    .max(50, "Parâmetros acima do esperado!")
+    .required("Obrigatório"),
+  password: Yup.string().min(5, "Parâmetros incompletos!").max(50, "Parâmetros acima do esperado!"),
+  email: Yup.string().email("E-mail inválido").required("Obrigatório"),
+  phone: Yup.string().required("Obrigatório"),
 });
 
 const SignUp = () => {

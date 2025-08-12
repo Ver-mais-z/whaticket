@@ -65,15 +65,15 @@ const useStyles = makeStyles((theme) => ({
 
 const DialogflowSchema = Yup.object().shape({
   name: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
+    .min(2, "Parâmetros incompletos!")
+    .max(50, "Parâmetros acima do esperado!")
     .required("Required"),
   // projectName: Yup.string()
-  //   .min(3, "Too Short!")
-  //   .max(100, "Too Long!")
+  //   .min(3, "Parâmetros incompletos!")
+  //   .max(100, "Parâmetros acima do esperado!")
   //   .required(),
-  // jsonContent: Yup.string().min(3, "Too Short!").required(),
-  // language: Yup.string().min(2, "Too Short!").max(50, "Too Long!").required(),
+  // jsonContent: Yup.string().min(3, "Parâmetros incompletos!").required(),
+  // language: Yup.string().min(2, "Parâmetros incompletos!").max(50, "Parâmetros acima do esperado!").required(),
 });
 
 

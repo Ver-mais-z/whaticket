@@ -65,8 +65,8 @@ const useStyles = makeStyles(theme => ({
 // *************** MODIFICAÇÃO AQUI: ADICIONANDO VALIDAÇÃO DE SENHA ***************
 const CompanySchema = Yup.object().shape({
 	name: Yup.string()
-		.min(2, "Too Short!")
-		.max(50, "Too Long!")
+		.min(2, "Parâmetros incompletos!")
+		.max(50, "Parâmetros acima do esperado!")
 		.required("Nome é obrigatório"),
 	email: Yup.string().email("Email é inválido").required("E-mail é obrigatório"),
 	// Adicionado passwordDefault como campo obrigatório.

@@ -86,11 +86,28 @@ const CreateContactService = async ({
 
   // Função auxiliar para converter strings vazias em null
   const emptyToNull = (value: any) => {
-    if (value === '' || value === undefined) return null;
-    return value;
+    if (value === undefined) return null;
+    return value === '' ? '' : value;
   };
 
   // Definindo a interface para o contactData incluindo o userId como opcional
+
+  // Validação da data de fundação
+  let foundationDateValue: Date | null = null;
+  if (foundationDate && typeof foundationDate === 'string' && foundationDate !== '') {
+    const date = new Date(foundationDate);
+    if (isNaN(date.getTime())) {
+      throw new AppError("INVALID_FOUNDATION_DATE");
+    } else {
+      foundationDateValue = date;
+    }
+  }
+
+  // Converter string vazia para null para foundationDate
+  if (typeof foundationDate === 'string' && foundationDate === '') {
+    foundationDateValue = null;
+  }
+
   const contactData: {
     name: string;
     number: string;
@@ -126,7 +143,7 @@ const CreateContactService = async ({
     instagram: emptyToNull(instagram),
     situation: situation || 'Ativo',
     fantasyName: emptyToNull(fantasyName),
-    foundationDate: foundationDate ? new Date(foundationDate) : null,
+    foundationDate: foundationDateValue,
     creditLimit: emptyToNull(creditLimit),
   };
 

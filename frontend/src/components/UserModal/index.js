@@ -109,11 +109,11 @@ const useStyles = makeStyles(theme => ({
 
 const UserSchema = Yup.object().shape({
 	name: Yup.string()
-		.min(2, "Too Short!")
-		.max(50, "Too Long!")
+		.min(2, "Parâmetros incompletos!")
+		.max(50, "Parâmetros acima do esperado!")
 		.required("Required"),
-	password: Yup.string().min(5, "Too Short!").max(50, "Too Long!"),
-	email: Yup.string().email("Invalid email").required("Required"),
+	password: Yup.string().min(5, "Parâmetros incompletos!").max(50, "Parâmetros acima do esperado!"),
+	email: Yup.string().email("E-mail inválido").required("Required"),
 	allHistoric: Yup.string().nullable(),
 });
 

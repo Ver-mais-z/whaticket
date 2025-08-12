@@ -1,6 +1,10 @@
 [
   {
-    "id": "5519996431722@s.whatsapp.net",
-    "name": "Jonas Cantor"
+    "id": "551935429251@s.whatsapp.net",
+    "name": "Junior Secadora"
+  },
+  {
+    "id": "5519999182788@s.whatsapp.net",
+    "name": "Gabriel Ferramenteiro"
   }
 ]

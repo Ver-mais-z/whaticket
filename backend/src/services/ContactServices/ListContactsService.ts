@@ -154,9 +154,8 @@ const ListContactsService = async ({
     ],
     include: [
       {
-        model: Tag,
-        as: "tags",
-        attributes: ["id", "name"]
+        association: "tags",
+        attributes: ["id", "name", "color"]
       },
     ],
     offset,

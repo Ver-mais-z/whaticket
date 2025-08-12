@@ -40,7 +40,7 @@ const useStyles = makeStyles((theme) => ({
 
 const NoteSchema = Yup.object().shape({
     note: Yup.string()
-        .min(2, "Too Short!")
+        .min(2, "Parâmetros incompletos!")
         .required("Required")
 });
 export function ContactNotes({ ticket }) {

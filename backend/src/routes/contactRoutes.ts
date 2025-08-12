@@ -26,7 +26,7 @@ contactRoutes.delete("/contacts/batch-delete", isAuth, ContactController.bulkRem
 contactRoutes.delete("/contacts/:contactId", isAuth, ContactController.remove); // <-- DEIXE ESTA LINHA ABAIXO
 
 contactRoutes.put("/contacts/toggleAcceptAudio/:contactId", isAuth, ContactController.toggleAcceptAudio);
-contactRoutes.get("/contacts", isAuth, ContactController.getContactVcard);
+contactRoutes.get("/contacts/vcard", isAuth, ContactController.getContactVcard);
 contactRoutes.get("/contacts/profile/:number", isAuth, ContactController.getContactProfileURL);
 
 contactRoutes.put("/contacts/block/:contactId", isAuth, ContactController.blockUnblock);

@@ -51,8 +51,8 @@ const useStyles = makeStyles((theme) => ({
 
 const ContactListSchema = Yup.object().shape({
   name: Yup.string()
-    .min(2, "Too Short!")
-    .max(50, "Too Long!")
+    .min(2, "Parâmetros incompletos!")
+    .max(50, "Parâmetros acima do esperado!")
     .required("Required"),
 });
 

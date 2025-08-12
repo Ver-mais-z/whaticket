@@ -81,6 +81,22 @@ const UpdateContactService = async ({
     }
   }
 
+  // Validação da data de fundação
+  let foundationDateValue: Date | null = null;
+  if (contactData.foundationDate && typeof contactData.foundationDate === 'string' && contactData.foundationDate !== '') {
+    const date = new Date(contactData.foundationDate);
+    if (isNaN(date.getTime())) {
+      throw new AppError("INVALID_FOUNDATION_DATE");
+    } else {
+      foundationDateValue = date;
+    }
+  }
+
+  // Converter string vazia para null para foundationDate
+  if (typeof contactData.foundationDate === 'string' && contactData.foundationDate === '') {
+    foundationDateValue = null;
+  }
+
   const contact = await Contact.findOne({
     where: { id: contactId },
     attributes: [
@@ -147,8 +163,8 @@ const UpdateContactService = async ({
 
   // Função auxiliar para converter strings vazias em null
   const emptyToNull = (value: any) => {
-    if (value === '' || value === undefined) return null;
-    return value;
+    if (value === undefined) return null;
+    return value === '' ? '' : value;
   };
 
   const updateData: any = {
@@ -167,7 +183,7 @@ const UpdateContactService = async ({
     instagram: instagram !== undefined ? emptyToNull(instagram) : contact.instagram,
     situation: situation !== undefined ? situation : contact.situation || 'Ativo',
     fantasyName: fantasyName !== undefined ? emptyToNull(fantasyName) : contact.fantasyName,
-    foundationDate: foundationDate !== undefined ? (foundationDate ? new Date(foundationDate) : null) : contact.foundationDate,
+    foundationDate: foundationDateValue,
     creditLimit: creditLimit !== undefined ? emptyToNull(creditLimit) : contact.creditLimit,
   };
 

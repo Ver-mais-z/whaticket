@@ -197,9 +197,15 @@ export const getContact = async (
   return res.status(200).json(contact);
 };
 
-export const store = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+  export const store = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const newContact: ContactData = req.body;
+
+  // Tratar foundationDate para null se for string vazia ou inválida
+  if (typeof newContact.foundationDate === 'string' && (newContact.foundationDate === '' || newContact.foundationDate === null)) {
+    newContact.foundationDate = null;
+  }
+
   const newRemoteJid = newContact.number;
 
   console.log("store", { companyId, newContact })
@@ -283,13 +289,18 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json(contact);
 };
 
-export const update = async (
+  export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
   const contactData: ContactData = req.body;
   const { companyId } = req.user;
   const { contactId } = req.params;
+
+  // Tratar foundationDate para null se for string vazia ou inválida
+  if (typeof contactData.foundationDate === 'string' && (contactData.foundationDate === '' || contactData.foundationDate === null)) {
+    contactData.foundationDate = null;
+  }
 
   const schema = Yup.object().shape({
     name: Yup.string().nullable(),
