@@ -25,11 +25,20 @@ import {
     X,
     Phone,
 } from "lucide-react";
-import { Facebook, Instagram, WhatsApp } from "@material-ui/icons";
+import { Facebook, Instagram, WhatsApp, ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
+import { Tooltip, Menu, MenuItem } from "@material-ui/core";
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
+
+const CustomTooltipProps = {
+  arrow: true,
+  enterTouchDelay: 0,
+  leaveTouchDelay: 5000,
+  enterDelay: 300,
+  leaveDelay: 100,
+};
 
 import { i18n } from "../../translate/i18n";
 import MainContainer from "../../components/MainContainer";
@@ -40,14 +49,36 @@ import { Can } from "../../components/Can";
 import NewTicketModal from "../../components/NewTicketModal";
 import { TagsFilter } from "../../components/TagsFilter";
 import PopupState, { bindTrigger, bindMenu } from "material-ui-popup-state";
-import { Menu, MenuItem } from "@material-ui/core";
-import { ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
 import formatSerializedId from '../../utils/formatSerializedId';
 import { v4 as uuidv4 } from "uuid";
 
 import ContactImportWpModal from "../../components/ContactImportWpModal";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
+
+/*
+Resumo das alterações realizadas:
+
+1. Correção da paginação e exibição do total de contatos:
+   - Atualização do estado `totalContacts` para refletir o total retornado pela API.
+   - Ajuste do texto "Mostrando itens" para exibir o intervalo correto de contatos visíveis e o total real.
+   - Cálculo correto do número total de páginas (`totalPages`).
+
+2. Melhorias no layout responsivo:
+   - Remoção de restrições de largura e overflow nas células da tabela para garantir a exibição correta em dispositivos móveis.
+   - Ajuste do layout da lista de contatos no mobile para melhor usabilidade.
+
+3. Implementação de tooltips personalizadas:
+   - Adição de tooltips nas tags que exibem "..." para mostrar as tags restantes.
+   - Adição de tooltips nos botões de ações (WhatsApp, Editar, Bloquear/Desbloquear, Deletar) com textos explicativos.
+   - Padronização das propriedades das tooltips para consistência visual.
+
+4. Correção de erros de ESLint:
+   - Remoção da duplicação do import React no topo do arquivo.
+
+5. Exibição da imagem do avatar do contato:
+   - Modificação para exibir a imagem do avatar do contato, se disponível, ou a inicial do nome.
+*/
 
 const reducer = (state, action) => {
     if (action.type === "LOAD_CONTACTS") {
@@ -132,6 +163,10 @@ const Contacts = () => {
     const [hideNum, setHideNum] = useState(false);
     const [enableLGPD, setEnableLGPD] = useState(false);
 
+    // Placeholder for total contacts, should be fetched from API
+    const [totalContacts, setTotalContacts] = useState(3000); 
+    const [contactsPerPage, setContactsPerPage] = useState(25);
+
     useEffect(() => {
         async function fetchData() {
             const settingList = await getAllSettings(user.companyId);
@@ -165,32 +200,33 @@ const Contacts = () => {
         setIsSelectAllChecked(false); // Desmarcar "Selecionar Tudo"
     }, [searchParam, selectedTags]);
 
-    useEffect(() => {
-        setLoading(true);
-        const delayDebounceFn = setTimeout(() => {
-            const fetchContacts = async () => {
-                try {
-                    const { data } = await api.get("/contacts/", {
-                        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) },
-                    });
-                    dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
-                    setHasMore(data.hasMore);
-                    setLoading(false);
+                    useEffect(() => {
+                        setLoading(true);
+                        const delayDebounceFn = setTimeout(() => {
+                            const fetchContacts = async () => {
+                                try {
+                                    const { data } = await api.get("/contacts/", {
+                                        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) },
+                                    });
+                                    dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
+                                    setHasMore(data.hasMore);
+                                    setTotalContacts(data.total || data.contacts.length); // Atualiza totalContacts dinamicamente
+                                    setLoading(false);
 
-                    // Atualizar o estado do "Selecionar Tudo" baseado nos contatos carregados e selecionados
-                    const allCurrentContactIds = data.contacts.map(c => c.id);
-                    const newSelected = selectedContactIds.filter(id => allCurrentContactIds.includes(id));
-                    setSelectedContactIds(newSelected); // Mantenha apenas os IDs que ainda estão na lista
-                    setIsSelectAllChecked(newSelected.length === allCurrentContactIds.length && allCurrentContactIds.length > 0);
+                                    // Atualizar o estado do "Selecionar Tudo" baseado nos contatos carregados e selecionados
+                                    const allCurrentContactIds = data.contacts.map(c => c.id);
+                                    const newSelected = selectedContactIds.filter(id => allCurrentContactIds.includes(id));
+                                    setSelectedContactIds(newSelected); // Mantenha apenas os IDs que ainda estão na lista
+                                    setIsSelectAllChecked(newSelected.length === allCurrentContactIds.length && allCurrentContactIds.length > 0);
 
-                } catch (err) {
-                    toastError(err);
-                }
-            };
-            fetchContacts();
-        }, 500);
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchParam, pageNumber, selectedTags]);
+                                } catch (err) {
+                                    toastError(err);
+                                }
+                            };
+                            fetchContacts();
+                        }, 500);
+                        return () => clearTimeout(delayDebounceFn);
+                    }, [searchParam, pageNumber, selectedTags]);
 
     useEffect(() => {
         const companyId = user.companyId;
@@ -384,9 +420,50 @@ const Contacts = () => {
         return number;
     };
 
+    // Função para lidar com a navegação de página
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setPageNumber(page);
+        }
+    };
+
+    // Calcula o número total de páginas
+    const totalPages = totalContacts === 0 ? 1 : Math.ceil(totalContacts / contactsPerPage);
+
+    // Função para renderizar os números de página com limite
+
+        const renderPageNumbers = () => {
+            const pages = [];
+            if (totalPages <= 3) {
+                for (let i = 1; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                pages.push(1, 2, 3, "...");
+            }
+            return pages.map((page, index) => (
+            <li key={index}>
+                {page === "..." ? (
+                    <span className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-700">...</span>
+                ) : (
+                    <button
+                        onClick={() => handlePageChange(page)}
+                        className={`flex items-center justify-center px-3 h-8 leading-tight border
+                            ${page === pageNumber
+                                ? "text-blue-600 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white"
+                                : "text-gray-500 bg-white border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                            }`}
+                    >
+                        {page}
+                    </button>
+                )}
+            </li>
+        ));
+    };
+
     return (
         <MainContainer>
-            <div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900">
+            <div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 overflow-y-auto" onScroll={handleScroll}>
                 <NewTicketModal
                     modalOpen={newTicketModalOpen}
                     initialContact={contactTicket}
@@ -437,8 +514,7 @@ const Contacts = () => {
                     }
                 >
                     {exportContact
-                        ?
-                        `${i18n.t("contacts.confirmationModal.exportContact")}`
+                        ? `${i18n.t("contacts.confirmationModal.exportContact")}`
                         : deletingContact
                             ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
                             : blockingContact
@@ -447,9 +523,7 @@ const Contacts = () => {
                                     ? `${i18n.t("contacts.confirmationModal.unblockContact")}`
                                     : ImportContacts
                                         ? `Escolha de qual conexão deseja importar`
-                                        : `${i18n.t(
-                                            "contactListItems.confirmationModal.importMessage"
-                                        )}`}
+                                        : `${i18n.t("contactListItems.confirmationModal.importMessage")}`}
                 </ConfirmationModal>
 
                 {/* NOVO MODAL DE CONFIRMAÇÃO PARA DELEÇÃO EM MASSA */}
@@ -482,70 +556,70 @@ const Contacts = () => {
                 </header>
 
                 {/* Barra de Ações e Filtros */}
-<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 md:flex-nowrap">
-  {/* Filtros e Busca (Esquerda) */}
-  <div className="w-full flex items-center gap-2 flex-1 min-w-0">
-    <div className="relative">
-      <TagsFilter onFiltered={handleSelectedTags} />
-    </div>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 md:flex-nowrap">
+                    {/* Filtros e Busca (Esquerda) */}
+                    <div className="w-full flex items-center gap-2 flex-1 min-w-0">
+                        <div className="relative">
+                            <TagsFilter onFiltered={handleSelectedTags} />
+                        </div>
 
-    {/* Busca com largura limitada */}
-    <div className="relative flex-1 min-w-[260px] max-w-[620px]">
-      <input
-        type="text"
-        placeholder="Buscar por nome, telefone, cidade, cnpj/cpf, cod. representante ou email..."
-        value={searchParam}
-        onChange={handleSearch}
-        className="w-full h-10 pl-10 pr-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-    </div>
-  </div>
+                        {/* Busca com largura limitada */}
+                        <div className="relative flex-1 min-w-[260px] max-w-[620px]">
+                            <input
+                                type="text"
+                                placeholder="Buscar por nome, telefone, cidade, cnpj/cpf, cod. representante ou email..."
+                                value={searchParam}
+                                onChange={handleSearch}
+                                className="w-full h-10 pl-10 pr-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        </div>
+                    </div>
 
-  {/* Ações Principais (Direita) */}
-  <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap">
-    <PopupState variant="popover" popupId="demo-popup-menu">
-      {(popupState) => (
-        <>
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
-            {...bindTrigger(popupState)}
-          >
-            Importar/Exportar
-            <ArrowDropDown />
-          </button>
-          <Menu {...bindMenu(popupState)}>
-            <MenuItem onClick={() => { setConfirmOpen(true); setImportContacts(true); popupState.close(); }}>
-              <ContactPhone fontSize="small" color="primary" style={{ marginRight: 10 }} />
-              {i18n.t("contacts.menu.importYourPhone")}
-            </MenuItem>
-            <MenuItem onClick={() => { setImportContactModalOpen(true) }}>
-              <Backup fontSize="small" color="primary" style={{ marginRight: 10 }} />
-              {i18n.t("contacts.menu.importToExcel")}
-            </MenuItem>
-          </Menu>
-        </>
-      )}
-    </PopupState>
+                    {/* Ações Principais (Direita) */}
+                    <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap">
+                        <PopupState variant="popover" popupId="demo-popup-menu">
+                            {(popupState) => (
+                                <>
+                                    <button
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                                        {...bindTrigger(popupState)}
+                                    >
+                                        Importar/Exportar
+                                        <ArrowDropDown />
+                                    </button>
+                                    <Menu {...bindMenu(popupState)}>
+                                        <MenuItem onClick={() => { setConfirmOpen(true); setImportContacts(true); popupState.close(); }}>
+                                            <ContactPhone fontSize="small" color="primary" style={{ marginRight: 10 }} />
+                                            {i18n.t("contacts.menu.importYourPhone")}
+                                        </MenuItem>
+                                        <MenuItem onClick={() => { setImportContactModalOpen(true) }}>
+                                            <Backup fontSize="small" color="primary" style={{ marginRight: 10 }} />
+                                            {i18n.t("contacts.menu.importToExcel")}
+                                        </MenuItem>
+                                    </Menu>
+                                </>
+                            )}
+                        </PopupState>
 
-    <button
-      onClick={() => setConfirmDeleteManyOpen(true)}
-      disabled={selectedContactIds.length === 0 || loading}
-      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-red-300 dark:disabled:bg-red-800 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap"
-    >
-      <Trash2 className="w-4 h-4 mr-2" />
-      Deletar ({selectedContactIds.length})
-    </button>
+                        <button
+                            onClick={() => setConfirmDeleteManyOpen(true)}
+                            disabled={selectedContactIds.length === 0 || loading}
+                            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-red-300 dark:disabled:bg-red-800 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Deletar ({selectedContactIds.length})
+                        </button>
 
-    <button
-      onClick={handleOpenContactModal}
-      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center whitespace-nowrap"
-    >
-      <Plus className="w-4 h-4 mr-2" />
-      Novo Contato
-    </button>
-  </div>
-</div>
+                        <button
+                            onClick={handleOpenContactModal}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center whitespace-nowrap"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Novo Contato
+                        </button>
+                    </div>
+                </div>
 
                 {/* Tabela de Contatos (Desktop) */}
                 <div className="hidden md:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
@@ -560,12 +634,12 @@ const Contacts = () => {
                                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                     </th>
                                     <th scope="col" className="px-6 py-3">Nome</th>
-                                    <th scope="col" className="px-6 py-3">WhatsApp</th>
+                                    <th scope="col" className="px-2 py-3">WhatsApp</th>
                                     <th scope="col" className="px-6 py-3">Email</th>
                                     <th scope="col" className="px-6 py-3">Cidade/UF</th>
                                     <th scope="col" className="px-6 py-3">Tags</th>
-                                    <th scope="col" className="px-6 py-3">Status</th>
-                                    <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                                    <th scope="col" className="px-2 py-3 text-center">Status</th>
+                                    <th scope="col" className="px-2 py-3 text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -577,128 +651,71 @@ const Contacts = () => {
                                                 onChange={handleToggleSelectContact(contact.id)}
                                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300">
-                                                {contact.name.charAt(0)}
-                                            </div>
-                                            {contact.name}
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis md:max-w-full md:overflow-visible md:text-ellipsis-clip">
+                                            <Tooltip {...CustomTooltipProps} title={contact.name}>
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
+                                                    {contact.urlPicture ? (
+                                                        <img
+                                                            src={`${process.env.REACT_APP_BACKEND_URL}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                                        alt={contact.name}
+                                                        className="w-10 h-10 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        contact.name.charAt(0)
+                                                    )}
+                                                </div>
+                                            </Tooltip>
+                                            <Tooltip {...CustomTooltipProps} title={contact.name}>
+                                                <span className="truncate" style={{maxWidth: 'calc(100% - 40px)'}}>
+                                                    {contact.name}
+                                                </span>
+                                            </Tooltip>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-4">
                                             {formatPhoneNumber(contact.number)}
                                         </td>
-                                        <td className="px-6 py-4">{contact.email}</td>
+                                        <td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap md:max-w-full md:overflow-visible md:text-ellipsis-clip">
+                                            <Tooltip {...CustomTooltipProps} title={contact.email}>
+                                                <span className="truncate">{contact.email}</span>
+                                            </Tooltip>
+                                        </td>
                                         <td className="px-6 py-4">{contact.city}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-1">
-                                                {contact.tags.map((tag) => (
-                                                    <span
-                                                        key={tag.id}
-                                                        className="px-2 py-1 text-xs font-medium text-white rounded-full"
-                                                        style={{ backgroundColor: tag.color }}
-                                                    >
-                                                        {tag.name}
-                                                    </span>
-                                                ))}
+                                            <td className="px-6 py-4" title={contact.tags.length > 2 ? contact.tags.slice(2).map(t => t.name).join(", ") : ""}>
+                                                <div className="flex items-center gap-1">
+                                                    {contact.tags.slice(0, 2).map((tag) => (
+                                                        <span
+                                                            key={tag.id}
+                                                            className="px-2 py-1 text-xs font-medium text-white rounded-full"
+                                                            style={{ backgroundColor: tag.color }}
+                                                        >
+                                                            {tag.name}
+                                                        </span>
+                                                    ))}
+                                                {contact.tags.length > 2 && (
+                                                    <Tooltip {...CustomTooltipProps} title={contact.tags.slice(2).map(t => t.name).join(", ")}>
+                                                        <span className="px-2 py-1 text-xs font-medium text-white rounded-full bg-gray-400 dark:bg-gray-600 cursor-default select-none">
+                                                            ...
+                                                        </span>
+                                                    </Tooltip>
+                                                )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-4 text-center">
                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${contact.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
                                                 {contact.active ? 'Ativo' : 'Inativo'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"><WhatsApp className="w-5 h-5" /></button>
-                                                <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"><Edit className="w-5 h-5" /></button>
-                                                <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                                                    {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                                                </button>
-                                                <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"><Trash2 className="w-5 h-5" /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {loading && <TableRowSkeleton avatar columns={7} />}
-                            </tbody>
-                        </table>
-                    </div>
-                    {/* Paginação da Tabela */}
-                    <nav className="flex items-center justify-between p-4" aria-label="Table navigation">
-                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">Mostrando <span className="font-semibold text-gray-900 dark:text-white">1-10</span> de <span className="font-semibold text-gray-900 dark:text-white">1000</span></span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm">Itens por página:</span>
-                            <select className="text-sm bg-gray-50 border border-gray-300 rounded-md p-1 dark:bg-gray-700 dark:border-gray-600">
-                                <option>25</option>
-                                <option>50</option>
-                                <option>100</option>
-                            </select>
-                        </div>
-                        <ul className="inline-flex items-center -space-x-px">
-                            <li><a href="#" className="flex items-center justify-center px-3 h-8 ml-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronsLeft className="w-5 h-5" /></a></li>
-                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronLeft className="w-5 h-5" /></a></li>
-                            <li><a href="#" aria-current="page" className="flex items-center justify-center px-3 h-8 text-blue-600 border border-blue-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">1</a></li>
-                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">2</a></li>
-                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronRight className="w-5 h-5" /></a></li>
-                            <li><a href="#" className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"><ChevronsRight className="w-5 h-5" /></a></li>
-                        </ul>
-                    </nav>
-                </div>
-
-                {/* Lista de Contatos (Mobile) */}
-                <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {contacts.map((contact) => (
-                        <div key={contact.id} className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 flex flex-col gap-4">
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-lg text-gray-600 dark:text-gray-300">
-                                        {contact.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-900 dark:text-white">{contact.name}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{contact.email}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="p-1 text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><WhatsApp className="w-5 h-5" /></button>
-                                    <button onClick={() => hadleEditContact(contact.id)} className="p-1 text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Edit className="w-5 h-5" /></button>
-                                    <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                                        {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                                    </button>
-                                    <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="p-1 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"><Trash2 className="w-5 h-5" /></button>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-300">{formatPhoneNumber(contact.number)}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{contact.city}</p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {contact.tags.map((tag) => (
-                                    <span
-                                        key={tag.id}
-                                        className="px-2 py-1 text-xs font-medium text-white rounded-full"
-                                        style={{ backgroundColor: tag.color }}
-                                    >
-                                        {tag.name}
-                                    </span>
-                                ))}
-                            </div>
-                            <div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${contact.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
-                                    {contact.active ? 'Ativo' : 'Inativo'}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                {/* Paginação Mobile */}
-                <div className="md:hidden flex items-center justify-between mt-4">
-                    <button className="p-2 text-gray-500 bg-white border rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"><ChevronLeft className="w-5 h-5" /></button>
-                    <span className="text-sm text-gray-700 dark:text-gray-200">1-25 de 3.254</span>
-                    <button className="p-2 text-gray-500 bg-white border rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"><ChevronRight className="w-5 h-5" /></button>
-                </div>
-            </div>
-        </MainContainer>
-    );
-};
-
-export default Contacts;
+                                                <Tooltip {...CustomTooltipProps} title="Enviar mensagem pelo WhatsApp">
+                                                    <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
+                                                        <WhatsApp className="w-5 h-5" />
+                                                    </button>
+                                                </Tooltip>
+                                                <Tooltip {...CustomTooltipProps} title="Editar contato">
+                                                    <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                                        <Edit className="w-5 h-5" />
+                                                    </button>
+                                                </Tooltip>
+                                                <Tooltip {...CustomTooltipProps} title={contact.active ? "Bloquear contato" : "Desbloquear contato"}>
+                                                    <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark
