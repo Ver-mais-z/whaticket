@@ -627,7 +627,7 @@ const Contacts = () => {
                                                 onChange={handleToggleSelectContact(contact.id)}
                                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis md:max-w-full md:overflow-visible md:text-ellipsis-clip">
+<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
                                                     {contact.urlPicture ? (
@@ -650,7 +650,7 @@ const Contacts = () => {
                                         <td className="px-2 py-4">
                                             {formatPhoneNumber(contact.number)}
                                         </td>
-                                        <td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap md:max-w-full md:overflow-visible md:text-ellipsis-clip">
+<td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
                                             <Tooltip {...CustomTooltipProps} title={contact.email}>
                                                 <span className="truncate">{contact.email}</span>
                                             </Tooltip>
