@@ -57,7 +57,7 @@ export const count = async (req: Request, res:Response): Promise<Response> => {
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
-    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso']).nullable(),
+    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable(),
     creditLimit: Yup.string().nullable(),
