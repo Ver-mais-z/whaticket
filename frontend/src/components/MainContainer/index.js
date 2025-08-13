@@ -12,7 +12,7 @@ const useStyles = makeStyles(theme => ({
 
 	contentWrapper: {
 		height: "100%",
-		overflowY: "hidden",
+		overflowY: "auto",
 		display: "flex",
 		flexDirection: "column",
 	},

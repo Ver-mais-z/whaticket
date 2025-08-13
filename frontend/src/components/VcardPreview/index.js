@@ -151,7 +151,13 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                 />
                 <Grid container spacing={1}>
                     <Grid item xs={2}>
-                        <Avatar src={`${selectedContact?.urlPicture}`} />
+                        <Avatar 
+                            src={selectedContact?.profilePicUrl || "/nopicture.png"}
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/nopicture.png";
+                            }}
+                        />
                     </Grid>
                     <Grid item xs={9}>
                         <Typography

@@ -28,6 +28,7 @@ import {
 import { Facebook, Instagram, WhatsApp, ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
 import { Tooltip, Menu, MenuItem } from "@material-ui/core";
 import api from "../../services/api";
+import { getBackendUrl } from "../../config";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -439,7 +440,7 @@ const Contacts = () => {
 
     return (
         <MainContainer>
-            <div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 overflow-y-auto" onScroll={handleScroll}>
+<div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900" onScroll={handleScroll}>
                 <NewTicketModal
                     modalOpen={newTicketModalOpen}
                     initialContact={contactTicket}
@@ -632,9 +633,19 @@ const Contacts = () => {
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
                                                     {contact.urlPicture ? (
                                                         <img
-                                                            src={`${process.env.REACT_APP_BACKEND_URL}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                                            src={`${getBackendUrl()}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
                                                             alt={contact.name}
                                                             className="w-10 h-10 rounded-full object-cover"
+                                                            onError={(e) => {
+                                                                // Se falhar, tenta carregar a imagem de perfil do WhatsApp
+                                                                if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
+                                                                    e.target.src = contact.profilePicUrl;
+                                                                } else {
+                                                                    // Se não tiver imagem de perfil, usa a imagem padrão
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = "/nopicture.png";
+                                                                }
+                                                            }}
                                                         />
                                                     ) : (
                                                         contact.name.charAt(0)
@@ -788,9 +799,19 @@ const Contacts = () => {
                             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
                                 {contact.urlPicture ? (
                                     <img
-                                        src={`${process.env.REACT_APP_BACKEND_URL}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                        src={`${getBackendUrl()}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
                                         alt={contact.name}
                                         className="w-10 h-10 rounded-full object-cover"
+                                        onError={(e) => {
+                                            // Se falhar, tenta carregar a imagem de perfil do WhatsApp
+                                            if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
+                                                e.target.src = contact.profilePicUrl;
+                                            } else {
+                                                // Se não tiver imagem de perfil, usa a imagem padrão
+                                                e.target.onerror = null;
+                                                e.target.src = "/nopicture.png";
+                                            }
+                                        }}
                                     />
                                 ) : (
                                     contact.name.charAt(0)
