@@ -74,7 +74,7 @@ interface ContactData {
   representativeCode?: string;
   city?: string;
   instagram?: string;
-  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluído';
   fantasyName?: string;
   foundationDate?: Date;
   creditLimit?: string;
@@ -240,7 +240,7 @@ export const getContact = async (
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
-    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso']).nullable(),
+    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable(),
     email: Yup.string().email().nullable()
@@ -306,7 +306,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     name: Yup.string().nullable(),
     number: Yup.string()
       .nullable()
-      .matches(/^\d*$/, "Invalid number format. Only numbers is allowed."),
+      .matches(/^\d+$/, "Invalid number format. Only numbers is allowed."),
     email: Yup.string().email().nullable(),
     cpfCnpj: Yup.string()
       .nullable()
@@ -319,7 +319,7 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
-    situation: Yup.mixed().oneOf(['Ativo', 'Inativo', 'Suspenso']).nullable(),
+    situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable()
   });

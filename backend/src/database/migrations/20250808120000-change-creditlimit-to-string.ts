@@ -1,7 +1,7 @@
 import { QueryInterface, DataTypes } from "sequelize";
 
 module.exports = {
-  up: async (queryInterface: QueryInterface) => {
+  up: (queryInterface: QueryInterface) => {
     return queryInterface.sequelize.transaction(async (transaction) => {
       // Verificar se a coluna já existe e seu tipo atual
       const tableDescription = await queryInterface.describeTable('Contacts');
@@ -15,12 +15,10 @@ module.exports = {
           defaultValue: null
         }, { transaction });
       }
-      
-      return Promise.resolve();
     });
   },
 
-  down: async (queryInterface: QueryInterface) => {
+  down: (queryInterface: QueryInterface) => {
     return queryInterface.sequelize.transaction(async (transaction) => {
       // Reverter para DECIMAL(10,2) se necessário
       await queryInterface.changeColumn("Contacts", "creditLimit", {
@@ -28,8 +26,6 @@ module.exports = {
         allowNull: true,
         defaultValue: null
       }, { transaction });
-      
-      return Promise.resolve();
     });
   }
 };

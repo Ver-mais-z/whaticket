@@ -328,6 +328,7 @@ const ContactModal = ({ open, onClose, contactId, initialValues, onSave }) => {
 											>
 												<MenuItem value="Ativo">Ativo</MenuItem>
 												<MenuItem value="Inativo">Inativo</MenuItem>
+												<MenuItem value="Excluido">Excluído</MenuItem>
 												<MenuItem value="Suspenso">Suspenso</MenuItem>
 											</Field>
 										</FormControl>

@@ -20,7 +20,7 @@ interface Request {
   representativeCode?: string;
   city?: string;
   instagram?: string;
-  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluído';
   fantasyName?: string;
   foundationDate?: Date;
 }

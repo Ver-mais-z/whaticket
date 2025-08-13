@@ -16,7 +16,7 @@ declare namespace Contact {
     representativeCode?: string;
     city?: string;
     instagram?: string;
-    situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+    situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluido';
     fantasyName?: string;
     foundationDate?: Date;
     creditLimit?: string;
@@ -31,7 +31,7 @@ declare namespace Contact {
     representativeCode?: string;
     city?: string;
     instagram?: string;
-    situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+    situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluido';
     fantasyName?: string;
     foundationDate?: Date;
     creditLimit?: string;
@@ -46,7 +46,7 @@ declare namespace Contact {
     representativeCode?: string;
     city?: string;
     instagram?: string;
-    situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+    situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluido';
     fantasyName?: string;
     foundationDate?: Date;
     creditLimit?: string;
@@ -60,6 +60,6 @@ declare namespace Contact {
     cpfCnpj?: string;
     representativeCode?: string;
     city?: string;
-    situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+    situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluido';
   }
 }

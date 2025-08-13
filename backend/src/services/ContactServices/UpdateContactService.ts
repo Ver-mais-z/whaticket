@@ -31,7 +31,7 @@ interface ContactData {
   representativeCode?: string;
   city?: string;
   instagram?: string;
-  situation?: 'Ativo' | 'Inativo' | 'Suspenso';
+  situation?: 'Ativo' | 'Inativo' | 'Suspenso' | 'Excluído';
   fantasyName?: string;
   foundationDate?: Date;
   creditLimit?: string;
