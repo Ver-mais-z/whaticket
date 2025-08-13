@@ -32,14 +32,6 @@ import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 
-const CustomTooltipProps = {
-  arrow: true,
-  enterTouchDelay: 0,
-  leaveTouchDelay: 5000,
-  enterDelay: 300,
-  leaveDelay: 100,
-};
-
 import { i18n } from "../../translate/i18n";
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
@@ -56,29 +48,13 @@ import ContactImportWpModal from "../../components/ContactImportWpModal";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
 
-/*
-Resumo das alterações realizadas:
-
-1. Correção da paginação e exibição do total de contatos:
-   - Atualização do estado `totalContacts` para refletir o total retornado pela API.
-   - Ajuste do texto "Mostrando itens" para exibir o intervalo correto de contatos visíveis e o total real.
-   - Cálculo correto do número total de páginas (`totalPages`).
-
-2. Melhorias no layout responsivo:
-   - Remoção de restrições de largura e overflow nas células da tabela para garantir a exibição correta em dispositivos móveis.
-   - Ajuste do layout da lista de contatos no mobile para melhor usabilidade.
-
-3. Implementação de tooltips personalizadas:
-   - Adição de tooltips nas tags que exibem "..." para mostrar as tags restantes.
-   - Adição de tooltips nos botões de ações (WhatsApp, Editar, Bloquear/Desbloquear, Deletar) com textos explicativos.
-   - Padronização das propriedades das tooltips para consistência visual.
-
-4. Correção de erros de ESLint:
-   - Remoção da duplicação do import React no topo do arquivo.
-
-5. Exibição da imagem do avatar do contato:
-   - Modificação para exibir a imagem do avatar do contato, se disponível, ou a inicial do nome.
-*/
+const CustomTooltipProps = {
+  arrow: true,
+  enterTouchDelay: 0,
+  leaveTouchDelay: 5000,
+  enterDelay: 300,
+  leaveDelay: 100,
+};
 
 const reducer = (state, action) => {
     if (action.type === "LOAD_CONTACTS") {
@@ -657,8 +633,8 @@ const Contacts = () => {
                                                     {contact.urlPicture ? (
                                                         <img
                                                             src={`${process.env.REACT_APP_BACKEND_URL}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
-                                                        alt={contact.name}
-                                                        className="w-10 h-10 rounded-full object-cover"
+                                                            alt={contact.name}
+                                                            className="w-10 h-10 rounded-full object-cover"
                                                         />
                                                     ) : (
                                                         contact.name.charAt(0)
@@ -718,4 +694,133 @@ const Contacts = () => {
                                                     </button>
                                                 </Tooltip>
                                                 <Tooltip {...CustomTooltipProps} title={contact.active ? "Bloquear contato" : "Desbloquear contato"}>
-                                                    <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark
+                                                    <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                                                        {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                                    </button>
+                                                </Tooltip>
+                                                <Tooltip {...CustomTooltipProps} title="Deletar contato">
+                                                    <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </Tooltip>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {loading && <TableRowSkeleton avatar columns={7} />}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/* Paginação da Tabela */}
+                    <nav className="flex items-center justify-between p-4" aria-label="Table navigation">
+                        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                            Página{" "}
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                                {pageNumber}-{pageNumber}
+                            </span>{" "}
+                            de{" "}
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                                {totalContacts}
+                            </span>{" "}
+                            Contatos
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">Itens por página:</span>
+                            <select
+                                value={contactsPerPage}
+                                onChange={(e) => {
+                                    setContactsPerPage(Number(e.target.value));
+                                    setPageNumber(1); // Reset to first page when items per page changes
+                                }}
+                                className="text-sm bg-gray-50 border border-gray-300 rounded-md p-1 dark:bg-gray-700 dark:border-gray-600"
+                            >
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+                        <ul className="inline-flex items-center -space-x-px">
+                            <li>
+                                <button
+                                    onClick={() => handlePageChange(1)}
+                                    disabled={pageNumber === 1}
+                                    className="flex items-center justify-center px-3 h-8 ml-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronsLeft className="w-5 h-5" />
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    onClick={() => handlePageChange(pageNumber - 1)}
+                                    disabled={pageNumber === 1}
+                                    className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                            </li>
+                            {renderPageNumbers()}
+                            <li>
+                                <button
+                                    onClick={() => handlePageChange(pageNumber + 1)}
+                                    disabled={pageNumber === totalPages}
+                                    className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    onClick={() => handlePageChange(totalPages)}
+                                    disabled={pageNumber === totalPages}
+                                    className="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronsRight className="w-5 h-5" />
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+
+                {/* Lista de Contatos (Mobile) */}
+                <div className="md:hidden flex flex-col gap-2 mt-4">
+                    {contacts.map((contact) => (
+                        <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
+                                {contact.urlPicture ? (
+                                    <img
+                                        src={`${process.env.REACT_APP_BACKEND_URL}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                        alt={contact.name}
+                                        className="w-10 h-10 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    contact.name.charAt(0)
+                                )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="font-medium text-gray-900 dark:text-white truncate" title={contact.name}>
+                                    {contact.name}
+                                </span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 truncate" title={contact.email}>
+                                    {contact.email}
+                                </span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                    {formatPhoneNumber(contact.number)}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"><WhatsApp className="w-5 h-5" /></button>
+                                <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"><Edit className="w-5 h-5" /></button>
+                                <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                                    {contact.active ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                </button>
+                                <button onClick={() => { setDeletingContact(contact); setConfirmOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"><Trash2 className="w-5 h-5" /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </MainContainer>
+    );
+};
+
+export default Contacts;
