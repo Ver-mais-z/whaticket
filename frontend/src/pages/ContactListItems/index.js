@@ -26,11 +26,13 @@ import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
 import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import BlockIcon from "@material-ui/icons/Block";
+import FilterListIcon from "@material-ui/icons/FilterList";
 
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactListItemModal from "../../components/ContactListItemModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import AddFilteredContactsModal from "../../components/AddFilteredContactsModal";
 
 import { i18n } from "../../translate/i18n";
 import MainHeader from "../../components/MainHeader";
@@ -49,10 +51,14 @@ import ForbiddenPage from "../../components/ForbiddenPage";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
-    const contacts = action.payload;
+    const incoming = Array.isArray(action.payload)
+      ? action.payload
+      : action.payload
+      ? [action.payload]
+      : [];
     const newContacts = [];
 
-    contacts.forEach((contact) => {
+    incoming.forEach((contact) => {
       const contactIndex = state.findIndex((c) => c.id === contact.id);
       if (contactIndex !== -1) {
         state[contactIndex] = contact;
@@ -66,6 +72,7 @@ const reducer = (state, action) => {
 
   if (action.type === "UPDATE_CONTACTS") {
     const contact = action.payload;
+    if (!contact) return state;
     const contactIndex = state.findIndex((c) => c.id === contact.id);
 
     if (contactIndex !== -1) {
@@ -78,6 +85,7 @@ const reducer = (state, action) => {
 
   if (action.type === "DELETE_CONTACT") {
     const contactId = action.payload;
+    if (contactId == null) return state;
 
     const contactIndex = state.findIndex((c) => c.id === contactId);
     if (contactIndex !== -1) {
@@ -89,6 +97,8 @@ const reducer = (state, action) => {
   if (action.type === "RESET") {
     return [];
   }
+
+  return state;
 };
 
 const useStyles = makeStyles((theme) => ({
@@ -120,6 +130,7 @@ const ContactListItems = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [contactList, setContactList] = useState({});
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const fileUploadRef = useRef(null);
 
   const { findById: findContactList } = useContactLists();
@@ -225,6 +236,14 @@ const ContactListItems = () => {
     }
   };
 
+  const handleOpenFilterModal = () => {
+    setFilterModalOpen(true);
+  };
+
+  const handleCloseFilterModal = () => {
+    setFilterModalOpen(false);
+  };
+
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);
   };
@@ -248,7 +267,16 @@ const ContactListItems = () => {
         onClose={handleCloseContactListItemModal}
         aria-labelledby="form-dialog-title"
         contactId={selectedContactId}
-      ></ContactListItemModal>
+      />
+      <AddFilteredContactsModal
+        open={filterModalOpen}
+        onClose={handleCloseFilterModal}
+        contactListId={contactListId}
+        reload={() => {
+          setSearchParam("");
+          setPageNumber(1);
+        }}
+      />
       <ConfirmationModal
         title={
           deletingContact
@@ -324,6 +352,17 @@ const ContactListItems = () => {
                         }}
                       >
                         {i18n.t("contactListItems.buttons.import")}
+                      </Button>
+                    </Grid>
+                    <Grid xs={4} sm={2} item>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        color="primary"
+                        onClick={handleOpenFilterModal}
+                        startIcon={<FilterListIcon />}
+                      >
+                        Filtrar
                       </Button>
                     </Grid>
                     <Grid xs={4} sm={2} item>

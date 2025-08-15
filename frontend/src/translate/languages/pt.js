@@ -1044,6 +1044,8 @@ const messages = {
           add: "Novo",
           lists: "Listas",
           import: "Importar",
+          filter: "Filtrar",
+          cancel: "Cancelar",
         },
         dialog: {
           name: "Nome",
@@ -1055,6 +1057,19 @@ const messages = {
           add: "Adicionar",
           edit: "Editar",
           cancel: "Cancelar",
+          filter: "Filtrar Contatos",
+        },
+        filterDialog: {
+          title: "Filtrar Contatos",
+          channel: "Canal",
+          representativeCode: "Código de Representante",
+          city: "Cidade",
+          situation: "Situação",
+          monthYear: "Mês/Ano (YYYY-MM)",
+          minCreditLimit: "Limite de Crédito Mínimo",
+          maxCreditLimit: "Limite de Crédito Máximo",
+          tags: "Tags",
+          none: "Nenhum",
         },
         table: {
           name: "Nome",
@@ -1071,6 +1086,12 @@ const messages = {
         },
         toasts: {
           deleted: "Registro excluído",
+          addedSuccess: "{{count}} contatos adicionados com sucesso!",
+          duplicated: "{{count}} contatos já existiam na lista e foram ignorados.",
+          addedError: "{{count}} contatos não puderam ser adicionados devido a erros.",
+          creditLimitError: "Erro ao processar filtro de limite de crédito. Verifique o formato (ex: R$ 1.000,00).",
+          monthYearError: "Erro ao processar filtro de mês/ano. Use o formato YYYY-MM (ex: 2023-01).",
+          tagsError: "Erro ao processar filtro de tags. Verifique se as tags selecionadas existem.",
         },
       },
       kanban: {

@@ -8,8 +8,10 @@ import ShowService from "../services/ContactListItemService/ShowService";
 import UpdateService from "../services/ContactListItemService/UpdateService";
 import DeleteService from "../services/ContactListItemService/DeleteService";
 import FindService from "../services/ContactListItemService/FindService";
+import AddFilteredContactsToListService from "../services/ContactListItemService/AddFilteredContactsToListService";
 
 import ContactListItem from "../models/ContactListItem";
+import logger from "../utils/logger";
 
 import AppError from "../errors/AppError";
 
@@ -141,8 +143,72 @@ export const findList = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
+  const { companyId } = req.user;
   const params = req.query as unknown as FindParams;
-  const records: ContactListItem[] = await FindService(params);
+
+  const records = await FindService({
+    companyId,
+    ...params
+  });
 
   return res.status(200).json(records);
+};
+
+export const addFilteredContacts = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const { companyId } = req.user;
+    const { contactListId } = req.params;
+    const { filters } = req.body;
+
+    logger.info('Recebendo requisição para adicionar contatos filtrados', {
+      contactListId,
+      filters: JSON.stringify(filters, null, 2)
+    });
+
+    // Validar tags como números
+    if (filters.tags && Array.isArray(filters.tags)) {
+      filters.tags = filters.tags
+        .map(tag => typeof tag === 'string' ? parseInt(tag, 10) : tag)
+        .filter(tag => !isNaN(tag));
+      
+      logger.info(`Tags convertidas para números: ${filters.tags.join(', ')}`);
+    }
+
+    const result = await AddFilteredContactsToListService({
+      contactListId: parseInt(contactListId, 10),
+      companyId,
+      filters
+    });
+
+    // Após inserir, busca a primeira página da lista para enviar via socket
+    const { contacts } = await ListService({
+      searchParam: "",
+      pageNumber: "1",
+      companyId,
+      contactListId: parseInt(contactListId, 10)
+    });
+
+    const io = getIO();
+    io.of(String(companyId))
+      .emit(`company-${companyId}-ContactListItem`, {
+        action: "reload",
+        records: contacts
+      });
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    const listId = req.params.contactListId;
+    const requestFilters = req.body.filters;
+    
+    logger.error('Erro ao adicionar contatos filtrados:', {
+      message: error.message,
+      stack: error.stack,
+      contactListId: listId,
+      filters: requestFilters ? JSON.stringify(requestFilters, null, 2) : 'undefined'
+    });
+    return res.status(400).json({ error: error.message });
+  }
 };

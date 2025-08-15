@@ -1,10 +1,10 @@
 [
   {
-    "id": "551935429251@s.whatsapp.net",
-    "name": "Junior Secadora"
+    "id": "554133189291@s.whatsapp.net",
+    "name": "Identificado como Spam"
   },
   {
-    "id": "5519999182788@s.whatsapp.net",
-    "name": "Gabriel Ferramenteiro"
+    "id": "5519983856833@s.whatsapp.net",
+    "name": "Felipe Enteado Claudio Repuxo"
   }
 ]

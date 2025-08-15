@@ -533,9 +533,9 @@ const Contacts = () => {
                 </header>
 
                 {/* Barra de Ações e Filtros */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 md:flex-nowrap">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 md:flex-nowrap">
                     {/* Filtros e Busca (Esquerda) */}
-                    <div className="w-full flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-full flex items-center gap-2 flex-1 min-w-0 justify-start">
                         <div className="relative">
                             <TagsFilter onFiltered={handleSelectedTags} />
                         </div>
@@ -554,7 +554,7 @@ const Contacts = () => {
                     </div>
 
                     {/* Ações Principais (Direita) */}
-                    <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap">
+                    <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap items-center">
                         <PopupState variant="popover" popupId="demo-popup-menu">
                             {(popupState) => (
                                 <>

@@ -25,4 +25,10 @@ routes.delete(
   ContactListItemController.remove
 );
 
+routes.post(
+  "/contact-list-items/:contactListId/add-filtered-contacts",
+  isAuth,
+  ContactListItemController.addFilteredContacts
+);
+
 export default routes;
