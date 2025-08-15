@@ -136,10 +136,14 @@ const ContactListItems = () => {
 
   const { findById: findContactList } = useContactLists();
 
-  useEffect(() => {
+  const refreshContactList = () => {
     findContactList(contactListId).then((data) => {
       setContactList(data);
     });
+  };
+
+  useEffect(() => {
+    refreshContactList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactListId]);
 
@@ -203,8 +207,17 @@ const ContactListItems = () => {
     }
     socket.on(`company-${companyId}-ContactListItem`, onCompanyContactLists);
 
+    // Atualiza metadados da lista (ex.: savedFilter) quando houver atualizações na ContactList
+    const onCompanyContactList = (data) => {
+      if (data.action === "update" && data.record && data.record.id === Number(contactListId)) {
+        setContactList(data.record);
+      }
+    };
+    socket.on(`company-${companyId}-ContactList`, onCompanyContactList);
+
     return () => {
       socket.off(`company-${companyId}-ContactListItem`, onCompanyContactLists);
+      socket.off(`company-${companyId}-ContactList`, onCompanyContactList);
     };
   }, [contactListId]);
 
@@ -304,9 +317,7 @@ const ContactListItems = () => {
       const tagNames = allTags.length ? allTags.filter(t => f.tags.includes(t.id)).map(t => t.name) : f.tags.map(id => `#${id}`);
       parts.push({ label: 'Tags', values: tagNames });
     }
-
-    if (!parts.length) return null;
-
+    // Mesmo que não haja partes reconhecíveis, exibir controles de sincronização
     const handleDisableAutoUpdate = async () => {
       try {
         await api.put(`/contact-lists/${contactListId}`, { savedFilter: null });
@@ -379,6 +390,7 @@ const ContactListItems = () => {
         reload={() => {
           setSearchParam("");
           setPageNumber(1);
+          refreshContactList();
         }}
       />
       <ConfirmationModal
