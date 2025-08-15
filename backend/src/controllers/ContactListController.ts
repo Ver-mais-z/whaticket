@@ -8,6 +8,7 @@ import ShowService from "../services/ContactListService/ShowService";
 import UpdateService from "../services/ContactListService/UpdateService";
 import DeleteService from "../services/ContactListService/DeleteService";
 import FindService from "../services/ContactListService/FindService";
+import SyncContactListBySavedFilterService from "../services/ContactListService/SyncContactListBySavedFilterService";
 import { head } from "lodash";
 
 import ContactList from "../models/ContactList";
@@ -23,7 +24,12 @@ type IndexQuery = {
 
 type StoreData = {
   name: string;
-  companyId: string;
+  companyId?: string | number;
+};
+
+type UpdateData = {
+  name?: string;
+  savedFilter?: any | null;
 };
 
 type FindParams = {
@@ -84,11 +90,12 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const data = req.body as StoreData;
+  const data = req.body as UpdateData;
   const { companyId } = req.user;
 
   const schema = Yup.object().shape({
-    name: Yup.string().required()
+    name: Yup.string().optional(),
+    savedFilter: Yup.mixed().nullable().optional()
   });
 
   try {
@@ -131,6 +138,21 @@ export const remove = async (
     });
 
   return res.status(200).json({ message: "Contact list deleted" });
+};
+
+export const syncNow = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { id } = req.params;
+  const { companyId } = req.user;
+
+  const result = await SyncContactListBySavedFilterService({
+    contactListId: Number(id),
+    companyId: Number(companyId)
+  });
+
+  return res.status(200).json(result);
 };
 
 export const findList = async (

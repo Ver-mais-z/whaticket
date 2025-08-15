@@ -42,7 +42,7 @@ import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
-import { Grid } from "@material-ui/core";
+import { Grid, Chip, Typography } from "@material-ui/core";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
 import ForbiddenPage from "../../components/ForbiddenPage";
@@ -131,6 +131,7 @@ const ContactListItems = () => {
   const [hasMore, setHasMore] = useState(false);
   const [contactList, setContactList] = useState({});
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [allTags, setAllTags] = useState([]);
   const fileUploadRef = useRef(null);
 
   const { findById: findContactList } = useContactLists();
@@ -141,6 +142,22 @@ const ContactListItems = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactListId]);
+
+  // Carrega tags apenas se necessário para exibir nomes no resumo do filtro
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const { data } = await api.get("/tags");
+        const list = Array.isArray(data) ? data : (data && Array.isArray(data.tags) ? data.tags : []);
+        setAllTags(list);
+      } catch (err) {
+        // silencioso no resumo
+      }
+    };
+    if (contactList && contactList.savedFilter && Array.isArray(contactList.savedFilter.tags)) {
+      loadTags();
+    }
+  }, [contactList]);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -260,6 +277,92 @@ const ContactListItems = () => {
     history.push("/contact-lists");
   };
 
+  const monthsPT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const formatCurrency = (val) => {
+    if (val == null || val === "") return null;
+    const num = Number(String(val).replace(/\./g, '').replace(/,/g, '.'));
+    if (isNaN(num)) return String(val);
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
+  };
+
+  const FilterSummary = () => {
+    const f = contactList && contactList.savedFilter;
+    if (!f) return null;
+
+    const parts = [];
+    if (Array.isArray(f.channel) && f.channel.length) parts.push({ label: 'Canal', values: f.channel });
+    if (Array.isArray(f.representativeCode) && f.representativeCode.length) parts.push({ label: 'Representante', values: f.representativeCode });
+    if (Array.isArray(f.city) && f.city.length) parts.push({ label: 'Cidade', values: f.city });
+    if (Array.isArray(f.situation) && f.situation.length) parts.push({ label: 'Situação', values: f.situation });
+    if (Array.isArray(f.foundationMonths) && f.foundationMonths.length) parts.push({ label: 'Fundação', values: f.foundationMonths.map(m => monthsPT[m-1]).filter(Boolean) });
+    if (f.minCreditLimit || f.maxCreditLimit) {
+      const min = formatCurrency(f.minCreditLimit) || '—';
+      const max = formatCurrency(f.maxCreditLimit) || '—';
+      parts.push({ label: 'Limite', values: [`${min} – ${max}`] });
+    }
+    if (Array.isArray(f.tags) && f.tags.length) {
+      const tagNames = allTags.length ? allTags.filter(t => f.tags.includes(t.id)).map(t => t.name) : f.tags.map(id => `#${id}`);
+      parts.push({ label: 'Tags', values: tagNames });
+    }
+
+    if (!parts.length) return null;
+
+    const handleDisableAutoUpdate = async () => {
+      try {
+        await api.put(`/contact-lists/${contactListId}`, { savedFilter: null });
+        const updated = await findContactList(contactListId);
+        setContactList(updated);
+        toast.success('Autoatualização desativada.');
+      } catch (err) {
+        toastError(err);
+      }
+    };
+
+    const handleSyncNow = async () => {
+      try {
+        const { data } = await api.post(`/contact-lists/${contactListId}/sync`);
+        toast.success('Sincronização iniciada.');
+        // Opcional: recarregar primeira página
+        setSearchParam("");
+        setPageNumber(1);
+      } catch (err) {
+        toastError(err);
+      }
+    };
+
+    return (
+      <div style={{ padding: '8px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, rowGap: 6 }}>
+          <Typography variant="caption" style={{ color: '#666' }}>
+            Filtro salvo:
+          </Typography>
+          {parts.map((p, idx) => (
+            <React.Fragment key={p.label}>
+              {idx > 0 && (
+                <Typography variant="caption" style={{ color: '#999' }}>{'>'}</Typography>
+              )}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Typography variant="caption" style={{ fontWeight: 600 }}>{p.label}:</Typography>
+                {p.values.map((v, i) => (
+                  <Chip key={`${p.label}-${i}`} size="small" label={v} />
+                ))}
+              </div>
+            </React.Fragment>
+          ))}
+          <Chip size="small" label="Auto-atualiza diariamente" color="primary" variant="outlined" />
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Button size="small" variant="outlined" color="primary" onClick={handleSyncNow}>
+              Sincronizar agora
+            </Button>
+            <Button size="small" variant="outlined" color="secondary" onClick={handleDisableAutoUpdate}>
+              Desativar autoatualização
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <MainContainer className={classes.mainContainer}>
       <ContactListItemModal
@@ -272,6 +375,7 @@ const ContactListItems = () => {
         open={filterModalOpen}
         onClose={handleCloseFilterModal}
         contactListId={contactListId}
+        savedFilter={contactList && contactList.savedFilter}
         reload={() => {
           setSearchParam("");
           setPageNumber(1);
@@ -314,8 +418,9 @@ const ContactListItems = () => {
                   <Title>{contactList.name}</Title>
                 </Grid>
                 <Grid xs={12} sm={7} item>
-                  <Grid spacing={2} container>
-                    <Grid xs={12} sm={6} item>
+                  <Grid container alignItems="center" spacing={2}>
+                    {/* Campo de busca alinhado à esquerda */}
+                    <Grid item xs>
                       <TextField
                         fullWidth
                         placeholder={i18n.t("contactListItems.searchPlaceholder")}
@@ -331,54 +436,49 @@ const ContactListItems = () => {
                         }}
                       />
                     </Grid>
-                    <Grid xs={4} sm={2} item>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        color="primary"
-                        onClick={goToContactLists}
-                      >
-                        {i18n.t("contactListItems.buttons.lists")}
-                      </Button>
-                    </Grid>
-                    <Grid xs={4} sm={2} item>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        color="primary"
-                        onClick={() => {
-                          fileUploadRef.current.value = null;
-                          fileUploadRef.current.click();
-                        }}
-                      >
-                        {i18n.t("contactListItems.buttons.import")}
-                      </Button>
-                    </Grid>
-                    <Grid xs={4} sm={2} item>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        color="primary"
-                        onClick={handleOpenFilterModal}
-                        startIcon={<FilterListIcon />}
-                      >
-                        Filtrar
-                      </Button>
-                    </Grid>
-                    <Grid xs={4} sm={2} item>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        color="primary"
-                        onClick={handleOpenContactListItemModal}
-                      >
-                        {i18n.t("contactListItems.buttons.add")}
-                      </Button>
+
+                    {/* Grupo de botões alinhados */}
+                    <Grid item>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={goToContactLists}
+                        >
+                          {i18n.t("contactListItems.buttons.lists")}
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={() => {
+                            fileUploadRef.current.value = null;
+                            fileUploadRef.current.click();
+                          }}
+                        >
+                          {i18n.t("contactListItems.buttons.import")}
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleOpenFilterModal}
+                          startIcon={<FilterListIcon />}
+                        >
+                          Filtrar
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleOpenContactListItemModal}
+                        >
+                          {i18n.t("contactListItems.buttons.add")}
+                        </Button>
+                      </div>
                     </Grid>
                   </Grid>
                 </Grid>
               </Grid>
             </MainHeader>
+            <FilterSummary />
             <Paper
               className={classes.mainPaper}
               variant="outlined"

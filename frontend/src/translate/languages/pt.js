@@ -1062,10 +1062,10 @@ const messages = {
         filterDialog: {
           title: "Filtrar Contatos",
           channel: "Canal",
-          representativeCode: "Código de Representante",
+          representativeCode: "Representante",
           city: "Cidade",
           situation: "Situação",
-          monthYear: "Mês/Ano (YYYY-MM)",
+          monthYear: "Data de Fundação",
           minCreditLimit: "Limite de Crédito Mínimo",
           maxCreditLimit: "Limite de Crédito Máximo",
           tags: "Tags",

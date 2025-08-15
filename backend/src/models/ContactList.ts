@@ -8,7 +8,8 @@ import {
   AutoIncrement,
   ForeignKey,
   BelongsTo,
-  HasMany
+  HasMany,
+  DataType
 } from "sequelize-typescript";
 import Company from "./Company";
 import ContactListItem from "./ContactListItem";
@@ -42,6 +43,9 @@ class ContactList extends Model<ContactList> {
     hooks: true
   })
   contacts: ContactListItem[];
+
+  @Column({ type: DataType.JSONB, allowNull: true })
+  savedFilter?: any;
 }
 
 export default ContactList;

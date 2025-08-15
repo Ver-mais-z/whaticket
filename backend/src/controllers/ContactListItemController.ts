@@ -9,6 +9,7 @@ import UpdateService from "../services/ContactListItemService/UpdateService";
 import DeleteService from "../services/ContactListItemService/DeleteService";
 import FindService from "../services/ContactListItemService/FindService";
 import AddFilteredContactsToListService from "../services/ContactListItemService/AddFilteredContactsToListService";
+import ContactList from "../models/ContactList";
 
 import ContactListItem from "../models/ContactListItem";
 import logger from "../utils/logger";
@@ -161,7 +162,7 @@ export const addFilteredContacts = async (
   try {
     const { companyId } = req.user;
     const { contactListId } = req.params;
-    const { filters } = req.body;
+    const { filters, saveFilter } = req.body as { filters: any; saveFilter?: boolean };
 
     logger.info('Recebendo requisição para adicionar contatos filtrados', {
       contactListId,
@@ -182,6 +183,22 @@ export const addFilteredContacts = async (
       companyId,
       filters
     });
+
+    // Opcionalmente salvar o filtro na lista para sincronização futura
+    if (saveFilter) {
+      try {
+        const list = await ContactList.findByPk(parseInt(contactListId, 10));
+        if (list) {
+          list.set("savedFilter", filters);
+          await list.save();
+        }
+      } catch (err: any) {
+        logger.warn("Falha ao salvar savedFilter na lista", {
+          contactListId,
+          error: err.message
+        });
+      }
+    }
 
     // Após inserir, busca a primeira página da lista para enviar via socket
     const { contacts } = await ListService({

@@ -21,7 +21,9 @@ import {
   FormHelperText,
   Chip,
   Typography,
-  InputAdornment
+  InputAdornment,
+  Checkbox,
+  FormControlLabel
 } from "@material-ui/core";
 
 import Autocomplete from "@material-ui/lab/Autocomplete";
@@ -63,7 +65,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
+const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedFilter }) => {
   const classes = useStyles();
   const history = useHistory();
   const [loading, setLoading] = useState(false);
@@ -73,6 +75,11 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
   const [representativeCodes, setRepresentativeCodes] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [saveFilterFlag, setSaveFilterFlag] = useState(false);
+  const monthsPT = [
+    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+    "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+  ];
 
   useEffect(() => {
     if (open) {
@@ -83,6 +90,19 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
       loadTags();
     }
   }, [open]);
+
+  // Quando abrir com savedFilter, pré-preencher selecionando as tags correspondentes
+  useEffect(() => {
+    if (open && savedFilter && Array.isArray(savedFilter.tags) && tags.length > 0) {
+      const preSelected = tags.filter(t => savedFilter.tags.includes(t.id));
+      setSelectedTags(preSelected);
+    }
+    if (open && savedFilter) {
+      setSaveFilterFlag(true);
+    } else {
+      setSaveFilterFlag(false);
+    }
+  }, [open, savedFilter, tags]);
 
   const loadChannels = async () => {
     try {
@@ -160,6 +180,15 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
         tags: selectedTags.map(tag => tag.id)
       };
 
+      // Mapear meses selecionados (strings) para números (1-12)
+      if (Array.isArray(values.foundationMonths) && values.foundationMonths.length > 0) {
+        filters.foundationMonths = values.foundationMonths
+          .map(m => monthsPT.indexOf(m) + 1)
+          .filter(n => n > 0);
+      }
+      // Remover monthYear antigo, se existir
+      delete filters.monthYear;
+
       // Tratar minCreditLimit e maxCreditLimit para garantir que sejam números ou strings numéricas
       if (filters.minCreditLimit) {
         filters.minCreditLimit = String(filters.minCreditLimit).replace(/R\$?\s?/gi, '').replace(/\./g, '').replace(/,/g, '.');
@@ -179,7 +208,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
       try {
         const { data } = await api.post(
           `/contact-list-items/${contactListId}/add-filtered-contacts`,
-          { filters }
+          { filters, saveFilter: saveFilterFlag }
         );
 
         toast.success(
@@ -245,13 +274,15 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
       </DialogTitle>
       <Formik
         initialValues={{
-          channel: [],
-          representativeCode: [],
-          city: [],
-          situation: [],
-          monthYear: "",
-          minCreditLimit: "",
-          maxCreditLimit: "",
+          channel: (savedFilter && savedFilter.channel) ? savedFilter.channel : [],
+          representativeCode: (savedFilter && savedFilter.representativeCode) ? savedFilter.representativeCode : [],
+          city: (savedFilter && savedFilter.city) ? savedFilter.city : [],
+          situation: (savedFilter && savedFilter.situation) ? savedFilter.situation : [],
+          foundationMonths: (savedFilter && Array.isArray(savedFilter.foundationMonths))
+            ? savedFilter.foundationMonths.map(n => monthsPT[n - 1]).filter(Boolean)
+            : [],
+          minCreditLimit: (savedFilter && savedFilter.minCreditLimit) ? savedFilter.minCreditLimit : "",
+          maxCreditLimit: (savedFilter && savedFilter.maxCreditLimit) ? savedFilter.maxCreditLimit : "",
         }}
         enableReinitialize={true}
         onSubmit={(values, actions) => {
@@ -360,15 +391,27 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <Field
-                    as={TextField}
-                    label={i18n.t("contactListItems.filterDialog.monthYear")}
-                    name="monthYear"
-                    fullWidth
-                    variant="outlined"
-                    margin="dense"
-                    placeholder="2023-01"
-                  />
+                  <Field name="foundationMonths">
+                    {({ field, form }) => (
+                      <Autocomplete
+                        multiple
+                        options={monthsPT}
+                        getOptionLabel={(option) => option}
+                        value={field.value || []}
+                        onChange={(event, value) => form.setFieldValue(field.name, value)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            label={i18n.t("contactListItems.filterDialog.monthYear")}
+                            placeholder={i18n.t("contactListItems.filterDialog.monthYear")}
+                            fullWidth
+                            margin="dense"
+                          />
+                        )}
+                      />
+                    )}
+                  </Field>
                 </Grid>
 
                 <Grid item xs={12} md={3}>
@@ -396,6 +439,19 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload }) => {
                     InputProps={{
                       startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                     }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        color="primary"
+                        checked={saveFilterFlag}
+                        onChange={(e) => setSaveFilterFlag(e.target.checked)}
+                      />
+                    }
+                    label="Salvar este filtro e atualizar automaticamente (diariamente)"
                   />
                 </Grid>
 

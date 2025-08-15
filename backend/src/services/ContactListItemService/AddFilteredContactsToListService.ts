@@ -10,7 +10,7 @@ interface FilterParams {
   representativeCode?: string[];
   city?: string[];
   situation?: string[];
-  monthYear?: string; // Formato YYYY-MM
+  foundationMonths?: number[]; // 1-12
   minCreditLimit?: string;
   maxCreditLimit?: string;
   tags?: number[];
@@ -73,24 +73,22 @@ const AddFilteredContactsToListService = async ({
       whereConditions.push({ situation: { [Op.in]: filters.situation } });
     }
 
-    // Filtro de mês/ano (data de fundação)
-    if (filters.monthYear) {
+    // Filtro por mês (independente do ano) da data de fundação
+    if (filters.foundationMonths && filters.foundationMonths.length > 0) {
       try {
-        const [year, month] = filters.monthYear.split('-');
-        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const endDate = new Date(parseInt(year), parseInt(month), 0); // Último dia do mês
-        
-        whereConditions.push({
-          foundationDate: {
-            [Op.between]: [startDate, endDate]
-          }
-        });
-        
-        logger.info(`Filtro de data: ${startDate.toISOString()} até ${endDate.toISOString()}`);
+        const months = filters.foundationMonths
+          .map(m => Number(m))
+          .filter(m => Number.isInteger(m) && m >= 1 && m <= 12);
+        if (months.length > 0) {
+          // Garante que foundationDate não seja nulo e filtra por mês via EXTRACT
+          whereConditions.push(literal(`"foundationDate" IS NOT NULL`));
+          whereConditions.push(literal(`EXTRACT(MONTH FROM "foundationDate") IN (${months.join(',')})`));
+          logger.info(`Filtro de meses da fundação (1-12): ${months.join(',')}`);
+        }
       } catch (error: any) {
-        logger.error(`Erro ao processar filtro de mês/ano:`, {
+        logger.error(`Erro ao processar filtro de meses da fundação:`, {
           message: error.message,
-          monthYear: filters.monthYear
+          foundationMonths: filters.foundationMonths
         });
       }
     }

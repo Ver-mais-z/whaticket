@@ -14,6 +14,7 @@ routes.get("/contact-lists", isAuth, ContactListController.index);
 routes.get("/contact-lists/:id", isAuth, ContactListController.show);
 routes.post("/contact-lists", isAuth, ContactListController.store);
 routes.post("/contact-lists/:id/upload",isAuth,upload.array("file"),ContactListController.upload);
+routes.post("/contact-lists/:id/sync", isAuth, ContactListController.syncNow);
 routes.put("/contact-lists/:id", isAuth, ContactListController.update);
 routes.delete("/contact-lists/:id", isAuth, ContactListController.remove);
 
