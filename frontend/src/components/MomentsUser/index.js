@@ -1,15 +1,32 @@
-import React, { Fragment, useContext, useEffect, useMemo, useState } from "react";
-import { useHistory } from "react-router-dom";
-import api from "../../services/api";
-import { i18n } from "../../translate/i18n";
-import toastError from "../../errors/toastError";
-
+import React, { useState, useEffect, useContext, useMemo, Fragment } from "react";
+import { makeStyles } from "@material-ui/core/styles";
+import {
+	List,
+	ListItem,
+	ListItemText,
+	ListItemAvatar,
+	Avatar,
+	Typography,
+	Divider,
+	Chip,
+	CardHeader,
+	Paper,
+	Card,
+	Container,
+	Badge,
+	Grid,
+	Tooltip
+} from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { i18n } from "../../translate/i18n";
+import api from "../../services/api";
+import toastError from "../../errors/toastError";
+import { SocketContext } from "../../context/Socket/SocketContext";
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 import {  ReportProblem, VisibilityOutlined } from "@mui/icons-material";
-// import { SocketContext } from "../../context/Socket/SocketContext";
 import { toast } from "react-toastify";
 import { yellow } from "@mui/material/colors";
-import { Avatar, CardHeader, Divider, List, ListItem, ListItemAvatar, ListItemText, Paper, Typography, Card, makeStyles, Container, Badge, Grid, Tooltip } from "@material-ui/core";
+import { useHistory } from "react-router-dom";
 import { format, isSameDay, parseISO } from "date-fns";
 import { grey } from "@material-ui/core/colors";
 import { getBackendUrl } from "../../config";
@@ -206,7 +223,7 @@ const DashboardManage = () => {
                   <List style={{ paddingTop: 0 }} key={ticket.id}>
                     <ListItem dense button>
                       <ListItemAvatar>
-                        <Avatar alt={`${ticket.contact.urlPicture}`} src={`${ticket.contact.urlPicture}`} />
+                        <Avatar alt={`${ticket.contact.name}`} src={getMediaUrl(ticket.contact.urlPicture)} />
                       </ListItemAvatar>
                       <ListItemText
                         disableTypography
@@ -294,7 +311,7 @@ const DashboardManage = () => {
                   <List style={{ paddingTop: 0 }} key={ticket.id}>
                     <ListItem dense button>
                       <ListItemAvatar>
-                        <Avatar alt={`${ticket.contact.urlPicture}`} src={`${ticket.contact.urlPicture}`} />
+                        <Avatar alt={`${ticket.contact.name}`} src={getMediaUrl(ticket.contact.urlPicture)} />
                       </ListItemAvatar>
                       <ListItemText
                         disableTypography

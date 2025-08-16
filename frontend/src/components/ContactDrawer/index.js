@@ -14,6 +14,7 @@ import CreateIcon from '@material-ui/icons/Create';
 import formatSerializedId from '../../utils/formatSerializedId';
 import { i18n } from "../../translate/i18n";
 import ModalImageCors from "../ModalImageCors"
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
 import { CardHeader, Switch, Tooltip } from "@material-ui/core";
@@ -205,9 +206,9 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
 				{loading ? (
 					<ContactDrawerSkeleton classes={classes} />
 				) : (
-					<div className={classes.content}>
-						<Paper square variant="outlined" className={classes.contactHeader}>
-							<ModalImageCors imageUrl={contact?.urlPicture} />
+						<div className={classes.content}>
+							<Paper square variant="outlined" className={classes.contactHeader}>
+								<ModalImageCors imageUrl={getMediaUrl(contact?.urlPicture)} />
 							<CardHeader
 								onClick={() => { }}
 								style={{ cursor: "pointer", width: '100%' }}

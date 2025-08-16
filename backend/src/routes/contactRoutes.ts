@@ -16,18 +16,19 @@ contactRoutes.post("/contacts/import", isAuth, ImportPhoneContactsController.sto
 contactRoutes.post("/contactsImport", isAuth, ContactController.importXls);
 contactRoutes.get("/contacts", isAuth, ContactController.index);
 contactRoutes.get("/contacts/list", isAuth, ContactController.list);
-contactRoutes.get("/contacts/:contactId", isAuth, ContactController.show);
+contactRoutes.get("/contacts/profile/:number", isAuth, ContactController.getContactProfileURL);
+contactRoutes.get("/contacts/:contactId(\\d+)", isAuth, ContactController.show);
 contactRoutes.post("/contacts", isAuth, ContactController.store);
-contactRoutes.put("/contacts/:contactId", isAuth, ContactController.update);
+contactRoutes.put("/contacts/:contactId(\\d+)", isAuth, ContactController.update);
 
 // Mova a rota de deleção em massa ANTES da rota de deleção de ID único.
 contactRoutes.delete("/contacts/batch-delete", isAuth, ContactController.bulkRemove); // <-- MOVA ESTA LINHA PARA CIMA
 
-contactRoutes.delete("/contacts/:contactId", isAuth, ContactController.remove); // <-- DEIXE ESTA LINHA ABAIXO
+contactRoutes.delete("/contacts/:contactId(\\d+)", isAuth, ContactController.remove); // <-- DEIXE ESTA LINHA ABAIXO
 
 contactRoutes.put("/contacts/toggleAcceptAudio/:contactId", isAuth, ContactController.toggleAcceptAudio);
 contactRoutes.get("/contacts/vcard", isAuth, ContactController.getContactVcard);
-contactRoutes.get("/contacts/profile/:number", isAuth, ContactController.getContactProfileURL);
+
 
 contactRoutes.put("/contacts/block/:contactId", isAuth, ContactController.blockUnblock);
 contactRoutes.post("/contacts/upload", isAuth, upload.array("file"), ContactController.upload);

@@ -42,7 +42,8 @@ import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
-import { Grid, Chip, Typography } from "@material-ui/core";
+import { Grid, Chip, Typography, Avatar } from "@material-ui/core";
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
 import ForbiddenPage from "../../components/ForbiddenPage";
@@ -515,7 +516,8 @@ const ContactListItems = () => {
                     <TableCell align="center" style={{ width: "0%" }}>
                       #
                     </TableCell>
-                    <TableCell>{i18n.t("contactListItems.table.name")}</TableCell>
+                    <TableCell align="center">Avatar</TableCell>
+<TableCell>{i18n.t("contactListItems.table.name")}</TableCell>
                     <TableCell align="center">
                       {i18n.t("contactListItems.table.number")}
                     </TableCell>
@@ -546,7 +548,21 @@ const ContactListItems = () => {
                             )}
                           </IconButton>
                         </TableCell>
-                        <TableCell>{contact.name}</TableCell>
+                        <TableCell align="center">
+  <Avatar
+    src={
+      getMediaUrl(
+        (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
+        contact.urlPicture ||
+        contact.profilePicUrl
+      ) || "/nopicture.png"
+    }
+    alt={contact.name}
+    style={{ width: 36, height: 36 }}
+    onError={e => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
+  />
+</TableCell>
+<TableCell>{contact.name}</TableCell>
                         <TableCell align="center">{contact.number}</TableCell>
                         <TableCell align="center">{contact.email}</TableCell>
                         <TableCell align="center">

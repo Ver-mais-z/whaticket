@@ -2,6 +2,8 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useHistory } from "react-router-dom";
 import toastError from "../../errors/toastError";
 import api from "../../services/api";
+import { i18n } from "../../translate/i18n";
+import { toast } from "react-toastify";
 
 import Avatar from "@material-ui/core/Avatar";
 import Typography from "@material-ui/core/Typography";
@@ -13,6 +15,7 @@ import { Button, Divider, useTheme, } from "@material-ui/core";
 import { isNil } from 'lodash';
 import ShowTicketOpen from '../ShowTicketOpenModal';
 import { grey } from '@material-ui/core/colors';
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 
 const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
     const theme = useTheme();
@@ -122,19 +125,42 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
 
             history.push(`/tickets/${ticket.uuid}`);
         } catch (err) {
-            const ticket = JSON.parse(err.response.data.error);
+            try {
+                const data = err?.response?.data || {};
+                const isStringData = typeof data === "string";
+                const errorField = isStringData ? undefined : data?.error;
+                const code = isStringData
+                    ? data
+                    : typeof errorField === "string"
+                        ? errorField
+                        : data?.message;
 
-            if (ticket.userId !== user?.id) {
-                setOpenAlert(true);
-                setUserTicketOpen(ticket.user.name);
-                setQueueTicketOpen(ticket.queue.name);
-            } else {
-                setOpenAlert(false);
-                setUserTicketOpen("");
-                setQueueTicketOpen("");
+                // Caso específico: já existe um ticket aberto para o contato
+                if (code === "ERR_OTHER_OPEN_TICKET") {
+                    toast.error(i18n.t("backendErrors.ERR_OTHER_OPEN_TICKET"));
+                    return;
+                }
 
-                history.push(`/tickets/${ticket.uuid}`);
+                // Compatibilidade com backend antigo: error como JSON string com dados do ticket
+                if (typeof errorField === "string" && errorField.trim().startsWith("{")) {
+                    const ticket = JSON.parse(errorField);
+                    if (ticket.userId !== user?.id) {
+                        setOpenAlert(true);
+                        setUserTicketOpen(ticket?.user?.name);
+                        setQueueTicketOpen(ticket?.queue?.name);
+                    } else {
+                        setOpenAlert(false);
+                        setUserTicketOpen("");
+                        setQueueTicketOpen("");
+                        history.push(`/tickets/${ticket.uuid}`);
+                    }
+                    return;
+                }
+            } catch (_) {
+                // ignora erros de parse e cai no tratamento genérico
             }
+            // Fallback genérico
+            toastError(err);
         }
     }
 
@@ -152,7 +178,7 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                 <Grid container spacing={1}>
                     <Grid item xs={2}>
                         <Avatar 
-                            src={selectedContact?.profilePicUrl || "/nopicture.png"}
+                            src={getMediaUrl(selectedContact?.profilePicUrl) || "/nopicture.png"}
                             onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = "/nopicture.png";

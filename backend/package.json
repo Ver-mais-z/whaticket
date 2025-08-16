@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "nodemon dist/server.js",
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "node ./scripts/check_and_kill_port.js && nodemon --exec ts-node src/server.ts",
     "dev:server": "ts-node-dev --respawn --transpile-only --ignore node_modules src/server.ts",
     "db:migrate": "npx sequelize db:migrate",
     "db:seed": "sequelize db:seed:all",

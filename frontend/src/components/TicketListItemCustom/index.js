@@ -1,24 +1,45 @@
 import React, { useState, useEffect, useRef, useContext, useCallback } from "react";
-
-import { useHistory, useParams } from "react-router-dom";
 import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
+import { useHistory, useParams } from "react-router-dom";
 
+import {
+	ListItem,
+	ListItemText,
+	ListItemAvatar,
+	Typography,
+	Avatar,
+	Divider,
+	Badge,
+	ListItemSecondaryAction,
+	Box,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	IconButton,
+	Paper,
+	Tooltip
+} from "@material-ui/core";
 import { makeStyles, useTheme } from "@material-ui/core/styles";
 import { green, grey } from "@material-ui/core/colors";
-import { i18n } from "../../translate/i18n";
 
+import MarkChatReadIcon from "@material-ui/icons/DraftsOutlined";
+import MarkChatUnreadIcon from "@material-ui/icons/MarkunreadOutlined";
+
+import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ButtonWithSpinner from "../ButtonWithSpinner";
 import MarkdownWrapper from "../MarkdownWrapper";
-import { List, Tooltip } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { TicketsContext } from "../../context/Tickets/TicketsContext";
 import toastError from "../../errors/toastError";
+import { SocketContext } from "../../context/Socket/SocketContext";
+import { TicketsContext } from "../../context/Tickets/TicketsContext";
+
+import ContactTag from "../ContactTag";
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 import { v4 as uuidv4 } from "uuid";
 
 import GroupIcon from '@material-ui/icons/Group';
-import ContactTag from "../ContactTag";
 import ConnectionIcon from "../ConnectionIcon";
 import AcceptTicketWithouSelectQueue from "../AcceptTicketWithoutQueueModal";
 import TransferTicketModalCustom from "../TransferTicketModalCustom";
@@ -27,25 +48,10 @@ import { isNil } from "lodash";
 import { toast } from "react-toastify";
 import { Done, HighlightOff, Replay, SwapHoriz } from "@material-ui/icons";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
-import { 
-    Avatar, 
-    Badge, 
-    ListItemAvatar, 
-    ListItem, 
-    ListItemSecondaryAction, 
-    ListItemText, 
-    Typography, 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    IconButton, 
-    Paper, 
-    Divider 
-} from "@material-ui/core";
-import { blue } from "@material-ui/core/colors";
 import VisibilityIcon from "@material-ui/icons/Visibility";
 import CloseIcon from "@material-ui/icons/Close";
 import MessageIcon from "@material-ui/icons/Message";
+import { blue } from "@material-ui/core/colors";
 
 const useStyles = makeStyles((theme) => ({
     ticket: {
@@ -573,8 +579,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                 </DialogTitle>
                 
                 <div className={classes.messagesHeader}>
-                    <Avatar 
-                        src={ticket?.contact?.urlPicture}
+                    <img 
+                        src={getMediaUrl(ticket?.contact?.urlPicture)}
                         className={classes.messageAvatar}
                     />
                     <div>
@@ -616,6 +622,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                                         <MarkdownWrapper>Localização</MarkdownWrapper>
                                     ) : message.body.includes('BEGIN:VCARD') ? (
                                         <MarkdownWrapper>Contato</MarkdownWrapper>
+                                    ) : message.body.includes('fb.me') ? (
+                                        <MarkdownWrapper>Clique de Anúncio</MarkdownWrapper>
                                     ) : (
                                         <MarkdownWrapper>{message.body}</MarkdownWrapper>
                                     )}
@@ -651,13 +659,13 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                 <ListItemAvatar
                     style={{ marginLeft: "-15px" }}
                 >
-                    <Avatar
+                    <img
                         style={{
                             width: "50px",
                             height: "50px",
                             borderRadius: "50%",
                         }}
-                        src={`${ticket?.contact?.urlPicture}`}
+                        src={getMediaUrl(ticket?.contact?.urlPicture)}
 
                     />
                 </ListItemAvatar>

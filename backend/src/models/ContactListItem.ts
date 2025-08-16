@@ -9,10 +9,12 @@ import {
   AllowNull,
   Default,
   ForeignKey,
-  BelongsTo
+  BelongsTo,
+  HasOne
 } from "sequelize-typescript";
 import Company from "./Company";
 import ContactList from "./ContactList";
+import Contact from "./Contact";
 
 @Table({ tableName: "ContactListItems" })
 class ContactListItem extends Model<ContactListItem> {
@@ -59,6 +61,9 @@ class ContactListItem extends Model<ContactListItem> {
 
   @Column
   isGroup: boolean;
+
+  @BelongsTo(() => Contact, { foreignKey: "number", targetKey: "number" })
+  contact: Contact;
 }
 
 export default ContactListItem;

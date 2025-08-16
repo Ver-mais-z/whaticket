@@ -1,5 +1,6 @@
 import { Sequelize, Op } from "sequelize";
 import ContactListItem from "../../models/ContactListItem";
+import Contact from "../../models/Contact";
 
 interface Request {
   searchParam?: string;
@@ -24,7 +25,7 @@ const ListService = async ({
     [Op.or]: [
       {
         name: Sequelize.where(
-          Sequelize.fn("LOWER", Sequelize.col("name")),
+          Sequelize.fn("LOWER", Sequelize.col("ContactListItem.name")),
           "LIKE",
           `%${searchParam.toLowerCase().trim()}%`
         )
@@ -42,7 +43,15 @@ const ListService = async ({
     where: whereCondition,
     limit,
     offset,
-    order: [["name", "ASC"]]
+    order: [["name", "ASC"]],
+    include: [
+      {
+        model: Contact,
+        as: "contact",
+        attributes: ["id", "name", "number", "email", "profilePicUrl"],
+        required: false
+      }
+    ]
   });
 
   const hasMore = count > offset + contacts.length;

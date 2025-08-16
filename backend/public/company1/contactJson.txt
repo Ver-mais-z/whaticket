@@ -1,10 +1,22 @@
 [
   {
-    "id": "554133189291@s.whatsapp.net",
-    "name": "Identificado como Spam"
+    "id": "5519996454334@s.whatsapp.net",
+    "name": "Elyanderson Sousa Ecobrisa"
   },
   {
-    "id": "5519983856833@s.whatsapp.net",
-    "name": "Felipe Enteado Claudio Repuxo"
+    "id": "5519991556088@s.whatsapp.net",
+    "name": "Claro Praça Barão"
+  },
+  {
+    "id": "5519998707276@s.whatsapp.net",
+    "name": "Edu Silva"
+  },
+  {
+    "id": "5519998209240@s.whatsapp.net",
+    "name": "Alexa Rio Claro"
+  },
+  {
+    "id": "5511967626007@s.whatsapp.net",
+    "name": "Identificado como Spam"
   }
 ]

@@ -1,16 +1,35 @@
 import Avatar from "@material-ui/core/Avatar";
-import Badge from "@material-ui/core/Badge";
-import { green } from "@material-ui/core/colors";
-import ListItem from "@material-ui/core/ListItem";
-import ListItemAvatar from "@material-ui/core/ListItemAvatar";
-import ListItemText from "@material-ui/core/ListItemText";
-import { makeStyles } from "@material-ui/core/styles";
-import Typography from "@material-ui/core/Typography";
+import React, { useState, useEffect, useRef, useContext } from "react";
+import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
-import { format, isSameDay, parseISO } from "date-fns";
-import React, { useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+
+import {
+	ListItem,
+	ListItemText,
+	ListItemAvatar,
+	Typography,
+	Avatar,
+	Divider,
+	Badge,
+	ListItemSecondaryAction,
+	Box
+} from "@material-ui/core";
+import { makeStyles } from "@material-ui/core/styles";
+
+import MarkChatReadIcon from "@material-ui/icons/MarkChatRead";
+import MarkChatUnreadIcon from "@material-ui/icons/MarkChatUnread";
+
+import { i18n } from "../../translate/i18n";
+import api from "../../services/api";
+import ButtonWithSpinner from "../ButtonWithSpinner";
 import MarkdownWrapper from "../MarkdownWrapper";
+import { Tooltip } from "@material-ui/core";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import toastError from "../../errors/toastError";
+import { SocketContext } from "../../context/Socket/SocketContext";
+
+import ContactTag from "../ContactTag";
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 
 const useStyles = makeStyles(theme => ({
     ticket: {
@@ -116,7 +135,7 @@ const TicketListForwardMessageItem = ({ ticket, selectedTicket, sendData }) => {
             >
                 <ListItemAvatar>
                     <Avatar
-                        src={ticket.contact.urlPicture && ticket.contact.urlPicture}
+                        src={getMediaUrl(ticket.contact.urlPicture)}
                     ></Avatar>
                 </ListItemAvatar>
                 <ListItemText

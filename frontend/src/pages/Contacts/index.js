@@ -28,7 +28,7 @@ import {
 import { Facebook, Instagram, WhatsApp, ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
 import { Tooltip, Menu, MenuItem } from "@material-ui/core";
 import api from "../../services/api";
-import { getBackendUrl } from "../../config";
+import { getMediaUrl } from "../../helpers/getMediaUrl";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -631,24 +631,28 @@ const Contacts = () => {
 <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
-                                                    {contact.urlPicture ? (
+                                                    {(contact.urlPicture || contact.profilePicUrl) ? (
                                                         <img
-                                                            src={`${getBackendUrl()}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                                            src={
+                                                              getMediaUrl(contact.urlPicture) ||
+                                                              getMediaUrl(contact.profilePicUrl) ||
+                                                              "/nopicture.png"
+                                                            }
                                                             alt={contact.name}
                                                             className="w-10 h-10 rounded-full object-cover"
                                                             onError={(e) => {
-                                                                // Se falhar, tenta carregar a imagem de perfil do WhatsApp
+                                                                // Tenta WhatsApp profilePicUrl; se falhar, usa padrão
                                                                 if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
-                                                                    e.target.src = contact.profilePicUrl;
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = getMediaUrl(contact.profilePicUrl);
                                                                 } else {
-                                                                    // Se não tiver imagem de perfil, usa a imagem padrão
                                                                     e.target.onerror = null;
                                                                     e.target.src = "/nopicture.png";
                                                                 }
                                                             }}
                                                         />
                                                     ) : (
-                                                        contact.name.charAt(0)
+                                                        contact.name?.charAt(0)
                                                     )}
                                                 </div>
                                             </Tooltip>
@@ -805,24 +809,27 @@ const Contacts = () => {
                     {contacts.map((contact) => (
                         <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
-                                {contact.urlPicture ? (
+                                {(contact.urlPicture || contact.profilePicUrl) ? (
                                     <img
-                                        src={`${getBackendUrl()}/public/company${contact.companyId}/contacts/${contact.urlPicture}`}
+                                        src={
+                                          getMediaUrl(contact.urlPicture) ||
+                                          getMediaUrl(contact.profilePicUrl) ||
+                                          "/nopicture.png"
+                                        }
                                         alt={contact.name}
                                         className="w-10 h-10 rounded-full object-cover"
                                         onError={(e) => {
-                                            // Se falhar, tenta carregar a imagem de perfil do WhatsApp
                                             if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
-                                                e.target.src = contact.profilePicUrl;
+                                                e.target.onerror = null;
+                                                e.target.src = getMediaUrl(contact.profilePicUrl);
                                             } else {
-                                                // Se não tiver imagem de perfil, usa a imagem padrão
                                                 e.target.onerror = null;
                                                 e.target.src = "/nopicture.png";
                                             }
                                         }}
                                     />
                                 ) : (
-                                    contact.name.charAt(0)
+                                    contact.name?.charAt(0)
                                 )}
                             </div>
                             <div className="flex flex-col flex-1 min-w-0">

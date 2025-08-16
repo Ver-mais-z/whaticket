@@ -174,20 +174,45 @@ const NewTicketModal = ({ modalOpen, onClose, initialContact }) => {
 
       onClose(ticket);
     } catch (err) {
+      setLoading(false);
+      try {
+        const data = err?.response?.data || {};
+        const isStringData = typeof data === "string";
+        const errorField = isStringData ? undefined : data?.error;
+        const code = isStringData
+          ? data
+          : typeof errorField === "string"
+            ? errorField
+            : data?.message;
 
-      const ticket = JSON.parse(err.response.data.error);
+        // Tratamento específico: já existe ticket aberto para o contato
+        if (code === "ERR_OTHER_OPEN_TICKET") {
+          // Mensagem amigável via tradução
+          toast.error(i18n.t("backendErrors.ERR_OTHER_OPEN_TICKET"));
+          return;
+        }
 
-      if (ticket.userId !== user?.id) {
-        setOpenAlert(true);
-        setUserTicketOpen(ticket?.user?.name);
-        setQueueTicketOpen(ticket?.queue?.name);
-      } else {
-        setOpenAlert(false);
-        setUserTicketOpen("");
-        setQueueTicketOpen("");
-        setLoading(false);
-        onClose(ticket);
+        // Compatibilidade: backend antigo enviava JSON string no campo error
+        if (typeof errorField === "string" && errorField.trim().startsWith("{")) {
+          const ticket = JSON.parse(errorField);
+          if (ticket.userId !== user?.id) {
+            setOpenAlert(true);
+            setUserTicketOpen(ticket?.user?.name);
+            setQueueTicketOpen(ticket?.queue?.name);
+          } else {
+            setOpenAlert(false);
+            setUserTicketOpen("");
+            setQueueTicketOpen("");
+            onClose(ticket);
+          }
+          return;
+        }
+      } catch (_) {
+        // Ignora erros de parse e cai no tratamento genérico
       }
+
+      // Fallback genérico
+      toastError(err);
     }
     setLoading(false);
   };
