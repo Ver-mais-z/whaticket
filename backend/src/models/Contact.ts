@@ -184,9 +184,13 @@ class Contact extends Model<Contact> {
   @Column
   get urlPicture(): string | null {
     if (this.getDataValue("urlPicture")) {
-      return this.getDataValue("urlPicture") === 'nopicture.png' ?
-        `${process.env.FRONTEND_URL}/nopicture.png` :
-        `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}`
+      const file = this.getDataValue("urlPicture");
+      if (file === 'nopicture.png') {
+        return `${process.env.FRONTEND_URL}/nopicture.png`;
+      }
+      const base = `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${file}`;
+      const version = this.updatedAt ? new Date(this.updatedAt).getTime() : '';
+      return version ? `${base}?v=${version}` : base;
     }
     return null;
   }
