@@ -17,16 +17,14 @@ import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
-import SearchIcon from "@material-ui/icons/Search";
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
+ 
 
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
 import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import BlockIcon from "@material-ui/icons/Block";
-import FilterListIcon from "@material-ui/icons/FilterList";
+ 
 
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
@@ -35,15 +33,15 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import AddFilteredContactsModal from "../../components/AddFilteredContactsModal";
 
 import { i18n } from "../../translate/i18n";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
+ 
 import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
-import { Grid, Chip, Typography, Avatar } from "@material-ui/core";
+import { Chip, Typography, Avatar } from "@material-ui/core";
 import { getMediaUrl } from "../../helpers/getMediaUrl";
+import { Search, List as ListIcon, Upload as UploadIcon, Filter as FilterIcon, Plus as PlusIcon } from "lucide-react";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
 import ForbiddenPage from "../../components/ForbiddenPage";
@@ -134,6 +132,8 @@ const ContactListItems = () => {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const fileUploadRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
 
   const { findById: findContactList } = useContactLists();
 
@@ -187,7 +187,7 @@ const ContactListItems = () => {
       fetchContacts();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchParam, pageNumber, contactListId]);
+  }, [searchParam, pageNumber, contactListId, refreshKey]);
 
   useEffect(() => {
     const companyId = user.companyId;
@@ -203,7 +203,10 @@ const ContactListItems = () => {
       }
 
       if (data.action === "reload") {
-        dispatch({ type: "LOAD_CONTACTS", payload: data.records });
+        // Evitar anexar listas grandes via socket. Força refetch da página 1.
+        dispatch({ type: "RESET" });
+        setPageNumber(1);
+        setRefreshKey(k => k + 1);
       }
     }
     socket.on(`company-${companyId}-ContactListItem`, onCompanyContactLists);
@@ -279,6 +282,7 @@ const ContactListItems = () => {
     setPageNumber((prevState) => prevState + 1);
   };
 
+
   const handleScroll = (e) => {
     if (!hasMore || loading) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -332,11 +336,13 @@ const ContactListItems = () => {
 
     const handleSyncNow = async () => {
       try {
-        const { data } = await api.post(`/contact-lists/${contactListId}/sync`);
+        await api.post(`/contact-lists/${contactListId}/sync`);
         toast.success('Sincronização iniciada.');
-        // Opcional: recarregar primeira página
+        // Recarregar lista sem F5
+        dispatch({ type: "RESET" });
         setSearchParam("");
         setPageNumber(1);
+        setRefreshKey(k => k + 1);
       } catch (err) {
         toastError(err);
       }
@@ -425,72 +431,63 @@ const ContactListItems = () => {
           <ForbiddenPage />
           :
           <>
-            <MainHeader>
-              <Grid style={{ width: "99.6%" }} container>
-                <Grid xs={12} sm={5} item>
-                  <Title>{contactList.name}</Title>
-                </Grid>
-                <Grid xs={12} sm={7} item>
-                  <Grid container alignItems="center" spacing={2}>
-                    {/* Campo de busca alinhado à esquerda */}
-                    <Grid item xs>
-                      <TextField
-                        fullWidth
-                        placeholder={i18n.t("contactListItems.searchPlaceholder")}
-                        type="search"
-                        value={searchParam}
-                        onChange={handleSearch}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <SearchIcon style={{ color: "gray" }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
+            {/* Cabeçalho */}
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
+                {contactList.name}
+              </h1>
+            </header>
 
-                    {/* Grupo de botões alinhados */}
-                    <Grid item>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={goToContactLists}
-                        >
-                          {i18n.t("contactListItems.buttons.lists")}
-                        </Button>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={() => {
-                            fileUploadRef.current.value = null;
-                            fileUploadRef.current.click();
-                          }}
-                        >
-                          {i18n.t("contactListItems.buttons.import")}
-                        </Button>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={handleOpenFilterModal}
-                          startIcon={<FilterListIcon />}
-                        >
-                          Filtrar
-                        </Button>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={handleOpenContactListItemModal}
-                        >
-                          {i18n.t("contactListItems.buttons.add")}
-                        </Button>
-                      </div>
-                    </Grid>
-                  </Grid>
-                </Grid>
-              </Grid>
-            </MainHeader>
+            {/* Barra de Ações e Filtros */}
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 md:flex-nowrap">
+              {/* Busca (Esquerda) */}
+              <div className="w-full flex items-center gap-2 flex-1 min-w-0 justify-start">
+                <div className="relative flex-1 min-w-[260px] max-w-[620px]">
+                  <input
+                    type="text"
+                    placeholder={i18n.t("contactListItems.searchPlaceholder")}
+                    value={searchParam}
+                    onChange={handleSearch}
+                    className="w-full h-10 pl-10 pr-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Ações (Direita) */}
+              <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap items-center">
+                <button
+                  onClick={goToContactLists}
+                  className="px-4 py-2 text-sm font-semibold uppercase text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+                >
+                  <ListIcon className="w-4 h-4 mr-2" />
+                  {i18n.t("contactListItems.buttons.lists")}
+                </button>
+                <button
+                  onClick={() => { fileUploadRef.current.value = null; fileUploadRef.current.click(); }}
+                  className="px-4 py-2 text-sm font-semibold uppercase text-white bg-pink-300 hover:bg-pink-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400 flex items-center"
+                >
+                  <UploadIcon className="w-4 h-4 mr-2" />
+                  {i18n.t("contactListItems.buttons.import")}
+                </button>
+                <button
+                  onClick={handleOpenFilterModal}
+                  className="px-4 py-2 text-sm font-semibold uppercase text-white bg-green-600 hover:bg-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center"
+                >
+                  <FilterIcon className="w-4 h-4 mr-2" />
+                  Filtrar
+                </button>
+                <button
+                  onClick={handleOpenContactListItemModal}
+                  className="px-4 py-2 text-sm font-semibold uppercase text-white bg-green-400 hover:bg-green-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 flex items-center"
+                >
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  {i18n.t("contactListItems.buttons.add")}
+                </button>
+              </div>
+            </div>
+
+            {/* Resumo de Filtro e botões extras */}
             <FilterSummary />
             <Paper
               className={classes.mainPaper}
@@ -549,20 +546,21 @@ const ContactListItems = () => {
                           </IconButton>
                         </TableCell>
                         <TableCell align="center">
-  <Avatar
-    src={
-      getMediaUrl(
-        (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
-        contact.urlPicture ||
-        contact.profilePicUrl
-      ) || "/nopicture.png"
-    }
-    alt={contact.name}
-    style={{ width: 36, height: 36 }}
-    onError={e => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
-  />
-</TableCell>
-<TableCell>{contact.name}</TableCell>
+                          <Avatar
+                            src={
+                              getMediaUrl(
+                                (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
+                                contact.urlPicture ||
+                                contact.profilePicUrl
+                              ) || "/nopicture.png"
+                            }
+                            alt={contact.name}
+                            style={{ width: 36, height: 36 }}
+                            imgProps={{ loading: 'lazy' }}
+                            onError={e => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
+                          />
+                        </TableCell>
+                        <TableCell>{contact.name}</TableCell>
                         <TableCell align="center">{contact.number}</TableCell>
                         <TableCell align="center">{contact.email}</TableCell>
                         <TableCell align="center">
@@ -595,7 +593,8 @@ const ContactListItems = () => {
                 </TableBody>
               </Table>
             </Paper>
-          </>}
+          </>
+      }
     </MainContainer>
   );
 };

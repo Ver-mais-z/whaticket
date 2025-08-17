@@ -5,7 +5,7 @@ import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
-import Button from "@material-ui/core/Button";
+ 
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
@@ -32,6 +32,7 @@ import ContactListDialog from "../../components/ContactListDialog";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
 import { Grid } from "@material-ui/core";
+import { Plus as PlusIcon } from "lucide-react";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
 // import { SocketContext } from "../../context/Socket/SocketContext";
@@ -222,12 +223,12 @@ const ContactLists = () => {
       />
       <MainHeader>
         <Grid style={{ width: "99.6%" }} container>
-          <Grid xs={12} sm={8} item>
+          <Grid xs={12} sm={5} item>
             <Title>{i18n.t("contactLists.title")}</Title>
           </Grid>
-          <Grid xs={12} sm={4} item>
-            <Grid spacing={2} container>
-              <Grid xs={7} sm={6} item>
+          <Grid xs={12} sm={7} item>
+            <Grid container alignItems="center" spacing={2}>
+              <Grid item xs>
                 <TextField
                   fullWidth
                   placeholder={i18n.t("contacts.searchPlaceholder")}
@@ -243,15 +244,16 @@ const ContactLists = () => {
                   }}
                 />
               </Grid>
-              <Grid xs={5} sm={6} item>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleOpenContactListModal}
-                >
-                  {i18n.t("contactLists.buttons.add")}
-                </Button>
+              <Grid item>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={handleOpenContactListModal}
+                    className="px-4 py-2 text-sm font-semibold uppercase text-white bg-green-400 hover:bg-green-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 flex items-center"
+                  >
+                    <PlusIcon className="w-4 h-4 mr-2" />
+                    {i18n.t("contactLists.buttons.add")}
+                  </button>
+                </div>
               </Grid>
             </Grid>
           </Grid>

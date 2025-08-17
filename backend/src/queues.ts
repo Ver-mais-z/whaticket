@@ -47,6 +47,10 @@ const connection = process.env.REDIS_URI || "";
 const limiterMax = process.env.REDIS_OPT_LIMITER_MAX || 1;
 const limiterDuration = process.env.REDIS_OPT_LIMITER_DURATION || 3000;
 
+// Controle de backoff por conexão (whatsappId) em memória
+type BackoffState = { count: number; lastErrorAt: number; pausedUntil?: number };
+const backoffMap: Map<number, BackoffState> = new Map();
+
 interface ProcessCampaignData {
   id: number;
   delay: number;
@@ -70,6 +74,13 @@ interface DispatchCampaignData {
   campaignId: number;
   campaignShippingId: number;
   contactListItemId: number;
+}
+
+interface CapBackoffSettings {
+  capHourly: number; // mensagens/hora por conexão
+  capDaily: number;  // mensagens/dia por conexão
+  backoffErrorThreshold: number; // nº de erros consecutivos para acionar pausa
+  backoffPauseMinutes: number;   // minutos de pausa quando atingir o threshold
 }
 
 export const userMonitor = new BullQueue("UserMonitor", connection);
@@ -698,6 +709,151 @@ export function randomValue(min, max) {
   return Math.floor(Math.random() * max) + min;
 }
 
+async function getCapBackoffSettings(companyId: number): Promise<CapBackoffSettings> {
+  try {
+    const settings = await CampaignSetting.findAll({
+      where: { companyId },
+      attributes: ["key", "value"]
+    });
+
+    // Defaults
+    let capHourly = 300;
+    let capDaily = 2000;
+    let backoffErrorThreshold = 5;
+    let backoffPauseMinutes = 10;
+
+    settings.forEach(s => {
+      if (s.key === "capHourly") capHourly = Number(JSON.parse(s.value));
+      if (s.key === "capDaily") capDaily = Number(JSON.parse(s.value));
+      if (s.key === "backoffErrorThreshold") backoffErrorThreshold = Number(JSON.parse(s.value));
+      if (s.key === "backoffPauseMinutes") backoffPauseMinutes = Number(JSON.parse(s.value));
+    });
+
+    return { capHourly, capDaily, backoffErrorThreshold, backoffPauseMinutes };
+  } catch (e) {
+    // Retorna defaults em caso de erro
+    return { capHourly: 300, capDaily: 2000, backoffErrorThreshold: 5, backoffPauseMinutes: 10 };
+  }
+}
+
+async function countDeliveredSince(whatsappId: number, sinceISO: string): Promise<number> {
+  const sql = `
+    SELECT COUNT(cs.id) AS cnt
+    FROM "CampaignShipping" cs
+    INNER JOIN "Campaigns" c ON c.id = cs."campaignId"
+    WHERE c."whatsappId" = :whatsappId
+      AND cs."deliveredAt" IS NOT NULL
+      AND cs."jobId" IS NOT NULL
+      AND cs."deliveredAt" >= :since
+  `;
+  const result: any[] = await sequelize.query(sql, {
+    type: QueryTypes.SELECT,
+    replacements: { whatsappId, since: sinceISO }
+  });
+  return Number(result[0]?.cnt || 0);
+}
+
+async function getCapDeferDelayMs(whatsappId: number, caps: CapBackoffSettings): Promise<number> {
+  const now = moment();
+  // janela horária
+  const hourStart = now.clone().startOf("hour");
+  const hourlyCount = await countDeliveredSince(whatsappId, hourStart.toISOString());
+  let deferHourMs = 0;
+  if (hourlyCount >= caps.capHourly) {
+    const nextHour = hourStart.clone().add(1, "hour");
+    deferHourMs = nextHour.diff(now, "milliseconds") + randomValue(250, 1250);
+  }
+
+  // janela diária
+  const dayStart = now.clone().startOf("day");
+  const dailyCount = await countDeliveredSince(whatsappId, dayStart.toISOString());
+  let deferDayMs = 0;
+  if (dailyCount >= caps.capDaily) {
+    const nextDay = dayStart.clone().add(1, "day");
+    deferDayMs = nextDay.diff(now, "milliseconds") + randomValue(1000, 5000);
+  }
+
+  return Math.max(deferHourMs, deferDayMs);
+}
+
+function getBackoffDeferDelayMs(whatsappId: number): number {
+  const state = backoffMap.get(whatsappId);
+  if (!state || !state.pausedUntil) return 0;
+  const now = Date.now();
+  return state.pausedUntil > now ? (state.pausedUntil - now) + randomValue(250, 1000) : 0;
+}
+
+function updateBackoffOnError(whatsappId: number, caps: CapBackoffSettings, errMsg: string) {
+  const patterns = /(too many|rate|limi|429|ban|block|spam)/i;
+  const isRateLike = patterns.test(errMsg || "");
+  const now = Date.now();
+  const current = backoffMap.get(whatsappId) || { count: 0, lastErrorAt: 0 };
+  if (!isRateLike) {
+    // não conta como erro de rate-limit/ban
+    backoffMap.set(whatsappId, { count: 0, lastErrorAt: now, pausedUntil: current.pausedUntil });
+    return;
+  }
+  const count = (current.count || 0) + 1;
+  const pausedUntil = count >= caps.backoffErrorThreshold
+    ? now + caps.backoffPauseMinutes * 60 * 1000
+    : current.pausedUntil;
+  backoffMap.set(whatsappId, { count, lastErrorAt: now, pausedUntil });
+}
+
+// ==== Blacklist / Suppression List Helpers ====
+async function getSuppressionTagNames(companyId: number): Promise<string[]> {
+  try {
+    const setting = await CampaignSetting.findOne({
+      where: { companyId, key: "suppressionTagNames" }
+    });
+    if (setting?.value) {
+      const parsed = JSON.parse(setting.value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((s: any) => String(s));
+      }
+    }
+  } catch (e) {
+    // ignore parse errors, fallback to defaults
+  }
+  // Padrões comuns de DNC/Opt-out (case-insensitive)
+  return [
+    "DNC",
+    "OPT-OUT",
+    "OPTOUT",
+    "STOP",
+    "SAIR",
+    "CANCELAR",
+    "REMOVER",
+    "DESCADASTRAR"
+  ];
+}
+
+async function isNumberSuppressed(number: string, companyId: number): Promise<boolean> {
+  try {
+    const contact = await Contact.findOne({
+      where: { number, companyId },
+      include: [{ model: Tag, through: { attributes: [] } }]
+    });
+    if (!contact) return false;
+    // Regras de opt-out/bloqueio
+    if (contact.disableBot === true) return true;
+    if (contact.active === false) return true;
+    if (contact.situation && contact.situation !== 'Ativo') return true;
+    const suppressionNames = (await getSuppressionTagNames(companyId)).map(s => s.toLowerCase());
+    const names = (contact as any).tags?.map((t: any) => (t?.name || "").toLowerCase()) || [];
+    return names.some(n => suppressionNames.includes(n));
+  } catch (e) {
+    return false;
+  }
+}
+
+function resetBackoffOnSuccess(whatsappId: number) {
+  const current = backoffMap.get(whatsappId);
+  if (current) {
+    backoffMap.set(whatsappId, { count: 0, lastErrorAt: Date.now(), pausedUntil: current.pausedUntil });
+  }
+}
+
 async function verifyAndFinalizeCampaign(campaign) {
   const { companyId, contacts } = campaign.contactList;
 
@@ -741,9 +897,14 @@ async function handleProcessCampaign(job) {
         }));
 
         // const baseDelay = job.data.delay || 0;
-        const longerIntervalAfter = parseToMilliseconds(settings.longerIntervalAfter);
-        const greaterInterval = parseToMilliseconds(settings.greaterInterval);
-        const messageInterval = settings.messageInterval;
+        // longerIntervalAfter representa após quantas mensagens aplicar o intervalo maior (contagem)
+        const longerIntervalAfter = settings.longerIntervalAfter;
+        // intervals em milissegundos
+        const greaterIntervalMs = parseToMilliseconds(settings.greaterInterval);
+        const messageIntervalMs = parseToMilliseconds(settings.messageInterval);
+        // mesmos intervals em segundos para incrementar a data base
+        const greaterIntervalSec = settings.greaterInterval;
+        const messageIntervalSec = settings.messageInterval;
 
         let baseDelay = campaign.scheduledAt;
 
@@ -752,10 +913,10 @@ async function handleProcessCampaign(job) {
 
         const queuePromises = [];
         for (let i = 0; i < contactData.length; i++) {
-          baseDelay = addSeconds(baseDelay, i > longerIntervalAfter ? greaterInterval : messageInterval);
+          baseDelay = addSeconds(baseDelay as any, (i > longerIntervalAfter ? greaterIntervalSec : messageIntervalSec) as any);
 
           const { contactId, campaignId, variables } = contactData[i];
-          const delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterInterval, messageInterval);
+          const delay = calculateDelay(i, baseDelay, longerIntervalAfter, greaterIntervalMs, messageIntervalMs);
           // if (isOpen || !isFds) {
           const queuePromise = campaignQueue.add(
             "PrepareContact",
@@ -775,13 +936,18 @@ async function handleProcessCampaign(job) {
   }
 }
 
-function calculateDelay(index, baseDelay, longerIntervalAfter, greaterInterval, messageInterval) {
-  const diffSeconds = differenceInSeconds(baseDelay, new Date());
-  if (index > longerIntervalAfter) {
-    return diffSeconds * 1000 + greaterInterval
-  } else {
-    return diffSeconds * 1000 + messageInterval
-  }
+function calculateDelay(
+  index: number,
+  baseDelay: Date,
+  longerIntervalAfterCount: number,
+  greaterIntervalMs: number,
+  messageIntervalMs: number
+) {
+  const diffMs = differenceInSeconds(baseDelay, new Date()) * 1000;
+  const baseInterval = (index + 1) > longerIntervalAfterCount ? greaterIntervalMs : messageIntervalMs;
+  // jitter anti-spam: 0-2000ms
+  const jitterMs = randomValue(0, 2000);
+  return diffMs + baseInterval + jitterMs;
 }
 
 async function handlePrepareContact(job) {
@@ -820,6 +986,9 @@ async function handlePrepareContact(job) {
         campaignShipping.confirmationMessage = `\u200c ${message}`;
       }
     }
+    // Verifica supressão antes de prosseguir
+    const suppressed = await isNumberSuppressed(campaignShipping.number, campaign.companyId);
+
     const [record, created] = await CampaignShipping.findOrCreate({
       where: {
         campaignId: campaignShipping.campaignId,
@@ -835,6 +1004,13 @@ async function handlePrepareContact(job) {
     ) {
       record.set(campaignShipping);
       await record.save();
+    }
+
+    if (suppressed) {
+      await record.update({ deliveredAt: moment(), jobId: null });
+      logger.warn(`Contato suprimido (opt-out/blacklist). Ignorando envio: Campanha=${campaign.id};Contato=${campaignShipping.number}`);
+      await verifyAndFinalizeCampaign(campaign);
+      return;
     }
 
     if (
@@ -896,7 +1072,40 @@ async function handleDispatchCampaign(job) {
       }
     );
 
-    const chatId = campaignShipping.contact.isGroup ? `${campaignShipping.number}@g.us` : `${campaignShipping.number}@s.whatsapp.net`;
+    if (!campaignShipping || !campaignShipping.number) {
+      logger.error(`campaignQueue -> DispatchCampaign -> error: campaignShipping not found or number missing (id=${campaignShippingId})`);
+      return;
+    }
+
+    // Checagem de supressão antes do envio
+    const suppressed = await isNumberSuppressed(campaignShipping.number, campaign.companyId);
+    if (suppressed) {
+      await campaignShipping.update({ deliveredAt: moment() });
+      await verifyAndFinalizeCampaign(campaign);
+      logger.warn(`Contato suprimido (opt-out/blacklist). Não enviado: Campanha=${campaignId};Contato=${campaignShipping.number}`);
+      return;
+    }
+
+    // Cap e Backoff por conexão (whatsappId)
+    const caps = await getCapBackoffSettings(campaign.companyId);
+    const capDelayMs = await getCapDeferDelayMs(campaign.whatsappId, caps);
+    const backoffDelayMs = getBackoffDeferDelayMs(campaign.whatsappId);
+    const deferMs = Math.max(capDelayMs, backoffDelayMs);
+    if (deferMs > 0) {
+      const nextJob = await campaignQueue.add(
+        "DispatchCampaign",
+        { campaignId, campaignShippingId, contactListItemId: data.contactListItemId },
+        { delay: deferMs, removeOnComplete: true }
+      );
+      await campaignShipping.update({ jobId: String(nextJob.id) });
+      logger.warn(`Cap/Backoff ativo. Reagendando envio: Campanha=${campaignId}; Registro=${campaignShippingId}; delay=${deferMs}ms`);
+      return;
+    }
+
+    const isGroup = Boolean(campaignShipping.contact && campaignShipping.contact.isGroup);
+    const chatId = isGroup
+      ? `${campaignShipping.number}@g.us`
+      : `${campaignShipping.number}@s.whatsapp.net`;
 
     if (campaign.openTicket === "enabled") {
       const [contact] = await Contact.findOrCreate({
@@ -990,6 +1199,8 @@ async function handleDispatchCampaign(job) {
           // }
         }
         await campaignShipping.update({ deliveredAt: moment() });
+        // sucesso: zera backoff para a conexão
+        resetBackoffOnSuccess(campaign.whatsappId);
       }
     }
     else {
@@ -1026,6 +1237,7 @@ async function handleDispatchCampaign(job) {
       }
 
       await campaignShipping.update({ deliveredAt: moment() });
+      resetBackoffOnSuccess(campaign.whatsappId);
 
     }
     await verifyAndFinalizeCampaign(campaign);
@@ -1041,8 +1253,30 @@ async function handleDispatchCampaign(job) {
       `Campanha enviada para: Campanha=${campaignId};Contato=${campaignShipping.contact.name}`
     );
   } catch (err: any) {
-    Sentry.captureException(err);
-    logger.error(err.message);
+    try {
+      Sentry.captureException(err);
+      logger.error(err.message);
+      // Atualiza estado de backoff da conexão e reagenda este job
+      const campaignId = job?.data?.campaignId;
+      const campaign = campaignId ? await getCampaign(campaignId) : null;
+      if (campaign) {
+        const caps = await getCapBackoffSettings(campaign.companyId);
+        updateBackoffOnError(campaign.whatsappId, caps, err?.message || "");
+        const delayMs = getBackoffDeferDelayMs(campaign.whatsappId) || (caps.backoffPauseMinutes * 60 * 1000);
+        const { campaignShippingId, contactListItemId } = job.data as DispatchCampaignData;
+        const nextJob = await campaignQueue.add(
+          "DispatchCampaign",
+          { campaignId: campaign.id, campaignShippingId, contactListItemId },
+          { delay: delayMs, removeOnComplete: true }
+        );
+        const record = await CampaignShipping.findByPk(campaignShippingId);
+        if (record) await record.update({ jobId: String(nextJob.id) });
+        logger.warn(`Erro no envio. Backoff aplicado e job reagendado em ${delayMs}ms. Campanha=${campaign.id}; Registro=${campaignShippingId}`);
+        return;
+      }
+    } catch (inner) {
+      logger.error(`Erro ao aplicar backoff: ${inner?.message}`);
+    }
     console.log(err.stack);
   }
 }

@@ -59,7 +59,7 @@ process.on("unhandledRejection", (reason, p) => {
 });
 
 // Cron diário para sincronizar listas com savedFilter (02:00 horário do servidor)
-cron.schedule("0 2 * * *", async () => {
+cron.schedule("0 4 * * *", async () => {
   try {
     logger.info("Iniciando sincronização diária de listas com savedFilter");
     const lists = await ContactList.findAll({
