@@ -9,3 +9,6 @@ yarn-error.log
 # Ignore test-related files
 /coverage.data
 /coverage/
+
+# Portainer stack file (contém segredos, não versionar)
+stack.portainer.yml

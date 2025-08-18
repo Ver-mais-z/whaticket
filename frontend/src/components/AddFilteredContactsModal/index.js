@@ -76,6 +76,21 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [saveFilterFlag, setSaveFilterFlag] = useState(false);
+  const [cronTime, setCronTime] = useState("02:00"); // HH:mm
+  const [cronTz, setCronTz] = useState("America/Sao_Paulo");
+  const timezones = [
+    "America/Sao_Paulo",
+    "America/Bahia",
+    "America/Belem",
+    "America/Recife",
+    "America/Fortaleza",
+    "America/Manaus",
+    "America/Cuiaba",
+    "America/Argentina/Buenos_Aires",
+    "America/New_York",
+    "UTC",
+    "Europe/London"
+  ];
   const monthsPT = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
     "Jul", "Ago", "Set", "Out", "Nov", "Dez"
@@ -88,6 +103,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
       loadSituations();
       loadRepresentativeCodes();
       loadTags();
+      loadCronConfig();
     }
   }, [open]);
 
@@ -162,6 +178,30 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
     }
   };
 
+  const loadCronConfig = async () => {
+    try {
+      const { data } = await api.get("/settings/saved-filter-cron");
+      if (data) {
+        if (data.tz) setCronTz(data.tz);
+        if (typeof data.expr === "string") {
+          const parts = data.expr.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            const min = parseInt(parts[0], 10);
+            const hour = parseInt(parts[1], 10);
+            if (!isNaN(min) && !isNaN(hour)) {
+              const hh = String(hour).padStart(2, '0');
+              const mm = String(min).padStart(2, '0');
+              setCronTime(`${hh}:${mm}`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Silencia erro para não travar o modal
+      console.warn("Falha ao carregar configuração do cron:", err);
+    }
+  };
+
   const handleClose = () => {
     onClose();
     setSelectedTags([]);
@@ -170,6 +210,22 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
   const handleAddFilteredContacts = async (values) => {
     setLoading(true);
     try {
+      // Se usuário optar por salvar filtro e atualizar automaticamente, atualiza o cron antes
+      if (saveFilterFlag) {
+        try {
+          const [hhStr, mmStr] = (cronTime || "02:00").split(":");
+          const hNum = parseInt(hhStr, 10);
+          const mNum = parseInt(mmStr, 10);
+          if (!isNaN(hNum) && !isNaN(mNum)) {
+            const expr = `${mNum} ${hNum} * * *`;
+            await api.put("/settings/saved-filter-cron", { expr, tz: cronTz || "America/Sao_Paulo" });
+          }
+        } catch (e) {
+          console.warn("Erro ao atualizar configuração do cron:", e);
+          toast.warning("Não foi possível atualizar o horário de sincronização agora.");
+        }
+      }
+
       // Preparar os filtros para enviar ao backend
       const filters = {
         ...values,
@@ -265,8 +321,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="md"
-      fullWidth
+      maxWidth="sm"
       scroll="paper"
     >
       <DialogTitle>
@@ -292,7 +347,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
       >
         {({ values, errors, touched, isSubmitting }) => (
           <Form>
-            <DialogContent dividers style={{ maxHeight: '400px' }}>
+            <DialogContent dividers >
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Field name="channel">
@@ -342,7 +397,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
                   </Field>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={12}>
                   <Field name="city">
                     {({ field, form }) => (
                       <Autocomplete
@@ -414,7 +469,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
                   </Field>
                 </Grid>
 
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} md={6}>
                   <Field
                     as={TextField}
                     label={i18n.t("contactListItems.filterDialog.minCreditLimit")}
@@ -428,7 +483,7 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
                   />
                 </Grid>
 
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} md={6}>
                   <Field
                     as={TextField}
                     label={i18n.t("contactListItems.filterDialog.maxCreditLimit")}
@@ -439,19 +494,6 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
                     InputProps={{
                       startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                     }}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        color="primary"
-                        checked={saveFilterFlag}
-                        onChange={(e) => setSaveFilterFlag(e.target.checked)}
-                      />
-                    }
-                    label="Salvar este filtro e atualizar automaticamente (diariamente)"
                   />
                 </Grid>
 
@@ -488,6 +530,59 @@ const AddFilteredContactsModal = ({ open, onClose, contactListId, reload, savedF
                     )}
                   />
                 </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        color="primary"
+                        checked={saveFilterFlag}
+                        onChange={(e) => setSaveFilterFlag(e.target.checked)}
+                      />
+                    }
+                    label="Salvar este filtro e atualizar automaticamente (diariamente)"
+                  />
+                </Grid>
+
+                {saveFilterFlag && (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Horário diário da sincronização"
+                        type="time"
+                        value={cronTime}
+                        onChange={(e) => setCronTime(e.target.value)}
+                        fullWidth
+                        variant="outlined"
+                        margin="dense"
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 300 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Autocomplete
+                        freeSolo
+                        options={timezones}
+                        getOptionLabel={(option) => option}
+                        value={cronTz}
+                        onChange={(e, newValue) => setCronTz(newValue || "")}
+                        onInputChange={(e, newInputValue) => setCronTz(newInputValue || "")}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            label="Timezone (IANA)"
+                            placeholder="Ex.: America/Sao_Paulo"
+                            fullWidth
+                            margin="dense"
+                          />
+                        )}
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                
               </Grid>
             </DialogContent>
             <DialogActions>

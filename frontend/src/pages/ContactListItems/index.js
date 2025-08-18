@@ -8,22 +8,10 @@ import React, {
 
 import { toast } from "react-toastify";
 import { useParams, useHistory } from "react-router-dom";
-
-import { makeStyles } from "@material-ui/core/styles";
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableHead from "@material-ui/core/TableHead";
-import TableRow from "@material-ui/core/TableRow";
-import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
  
 
-import IconButton from "@material-ui/core/IconButton";
-import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
-import CheckCircleIcon from "@material-ui/icons/CheckCircle";
-import BlockIcon from "@material-ui/icons/Block";
+ 
  
 
 import api from "../../services/api";
@@ -39,14 +27,23 @@ import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
-import { Chip, Typography, Avatar } from "@material-ui/core";
+import { Chip, Typography, Tooltip } from "@material-ui/core";
 import { getMediaUrl } from "../../helpers/getMediaUrl";
-import { Search, List as ListIcon, Upload as UploadIcon, Filter as FilterIcon, Plus as PlusIcon } from "lucide-react";
+import { Search, List as ListIcon, Upload as UploadIcon, Filter as FilterIcon, Plus as PlusIcon, Edit, Trash2, CheckCircle, Ban } from "lucide-react";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
 import ForbiddenPage from "../../components/ForbiddenPage";
 // import { SocketContext } from "../../context/Socket/SocketContext";
 
+
+// Tooltips consistentes com a página Contacts
+const CustomTooltipProps = {
+  arrow: true,
+  enterTouchDelay: 0,
+  leaveTouchDelay: 5000,
+  enterDelay: 300,
+  leaveDelay: 100,
+};
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
@@ -100,17 +97,8 @@ const reducer = (state, action) => {
   return state;
 };
 
-const useStyles = makeStyles((theme) => ({
-  mainPaper: {
-    flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
-    ...theme.scrollbarStyles,
-  },
-}));
-
 const ContactListItems = () => {
-  const classes = useStyles();
+  
 
   //   const socketManager = useContext(SocketContext);
   const { user, socket } = useContext(AuthContext);
@@ -303,6 +291,18 @@ const ContactListItems = () => {
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
   };
 
+  const formatPhoneNumber = (number) => {
+    if (!number) return "";
+    const cleaned = ('' + number).replace(/\D/g, '');
+    if (cleaned.startsWith("55") && cleaned.length === 13) {
+      const match = cleaned.match(/^(\d{2})(\d{2})(\d{5})(\d{4})$/);
+      if (match) {
+        return `BR (${match[2]}) ${match[3]}-${match[4]}`;
+      }
+    }
+    return number;
+  };
+
   const FilterSummary = () => {
     const f = contactList && contactList.savedFilter;
     if (!f) return null;
@@ -382,7 +382,8 @@ const ContactListItems = () => {
   };
 
   return (
-    <MainContainer className={classes.mainContainer}>
+    <MainContainer>
+      <div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 overflow-y-auto" onScroll={handleScroll}>
       <ContactListItemModal
         open={contactListItemModalOpen}
         onClose={handleCloseContactListItemModal}
@@ -489,112 +490,148 @@ const ContactListItems = () => {
 
             {/* Resumo de Filtro e botões extras */}
             <FilterSummary />
-            <Paper
-              className={classes.mainPaper}
-              variant="outlined"
-              onScroll={handleScroll}
-            >
-              <>
-                <input
-                  style={{ display: "none" }}
-                  id="upload"
-                  name="file"
-                  type="file"
-                  accept=".xls,.xlsx"
-                  onChange={() => {
-                    setConfirmOpen(true);
-                  }}
-                  ref={fileUploadRef}
-                />
-              </>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell align="center" style={{ width: "0%" }}>
-                      #
-                    </TableCell>
-                    <TableCell align="center">Avatar</TableCell>
-<TableCell>{i18n.t("contactListItems.table.name")}</TableCell>
-                    <TableCell align="center">
-                      {i18n.t("contactListItems.table.number")}
-                    </TableCell>
-                    <TableCell align="center">
-                      {i18n.t("contactListItems.table.email")}
-                    </TableCell>
-                    <TableCell align="center">
-                      {i18n.t("contactListItems.table.actions")}
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <>
+            {/* Input de upload oculto */}
+            <input
+              style={{ display: "none" }}
+              id="upload"
+              name="file"
+              type="file"
+              accept=".xls,.xlsx"
+              onChange={() => {
+                setConfirmOpen(true);
+              }}
+              ref={fileUploadRef}
+            />
+
+            {/* Tabela (Desktop) */}
+            <div className="hidden md:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 sticky top-0 z-10">
+                    <tr>
+                      <th scope="col" className="px-2 py-3 text-center">#</th>
+                      <th scope="col" className="px-6 py-3">Nome</th>
+                      <th scope="col" className="px-2 py-3 text-center">WhatsApp</th>
+                      <th scope="col" className="px-6 py-3">Email</th>
+                      <th scope="col" className="px-2 py-3 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {contacts.map((contact) => (
-                      <TableRow key={contact.id}>
-                        <TableCell align="center" style={{ width: "0%" }}>
-                          <IconButton>
-                            {contact.isWhatsappValid ? (
-                              <CheckCircleIcon
-                                titleAccess="Whatsapp Válido"
-                                htmlColor="green"
-                              />
-                            ) : (
-                              <BlockIcon
-                                titleAccess="Whatsapp Inválido"
-                                htmlColor="grey"
-                              />
-                            )}
-                          </IconButton>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Avatar
-                            src={
-                              getMediaUrl(
-                                (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
-                                contact.urlPicture ||
-                                contact.profilePicUrl
-                              ) || "/nopicture.png"
-                            }
-                            alt={contact.name}
-                            style={{ width: 36, height: 36 }}
-                            imgProps={{ loading: 'lazy' }}
-                            onError={e => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
-                          />
-                        </TableCell>
-                        <TableCell>{contact.name}</TableCell>
-                        <TableCell align="center">{contact.number}</TableCell>
-                        <TableCell align="center">{contact.email}</TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => hadleEditContact(contact.id)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <Can
-                            role={user.profile}
-                            perform="contacts-page:deleteContact"
-                            yes={() => (
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  setConfirmOpen(true);
-                                  setDeletingContact(contact);
+                      <tr key={contact.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <td className="px-2 py-4 text-center">
+                          {contact.isWhatsappValid ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Ban className="w-5 h-5 text-gray-400" />
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
+                          <Tooltip {...CustomTooltipProps} title={contact.name}>
+                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
+                              <img
+                                src={
+                                  getMediaUrl(
+                                    (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
+                                    contact.urlPicture ||
+                                    contact.profilePicUrl
+                                  ) || "/nopicture.png"
+                                }
+                                alt={contact.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "/nopicture.png";
                                 }}
-                              >
-                                <DeleteOutlineIcon />
-                              </IconButton>
-                            )}
-                          />
-                        </TableCell>
-                      </TableRow>
+                              />
+                            </div>
+                          </Tooltip>
+                          <Tooltip {...CustomTooltipProps} title={contact.name}>
+                            <span className="truncate" style={{maxWidth: 'calc(100% - 40px)'}}>
+                              {contact.name}
+                            </span>
+                          </Tooltip>
+                        </td>
+                        <td className="px-2 py-4 text-center">{formatPhoneNumber(contact.number)}</td>
+                        <td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                          <Tooltip {...CustomTooltipProps} title={contact.email}>
+                            <span className="truncate">{contact.email}</span>
+                          </Tooltip>
+                        </td>
+                        <td className="px-2 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Tooltip {...CustomTooltipProps} title="Editar">
+                              <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                <Edit className="w-5 h-5" />
+                              </button>
+                            </Tooltip>
+                            <Can
+                              role={user.profile}
+                              perform="contacts-page:deleteContact"
+                              yes={() => (
+                                <Tooltip {...CustomTooltipProps} title="Excluir">
+                                  <button onClick={() => { setConfirmOpen(true); setDeletingContact(contact); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </Tooltip>
+                              )}
+                            />
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                    {loading && <TableRowSkeleton columns={4} />}
-                  </>
-                </TableBody>
-              </Table>
-            </Paper>
+                    {loading && <TableRowSkeleton avatar columns={5} />}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Lista (Mobile) */}
+            <div className="md:hidden flex flex-col gap-2 mt-4">
+              {contacts.map((contact) => (
+                <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
+                  <div className="flex items-center justify-center">
+                    {contact.isWhatsappValid ? (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <Ban className="w-5 h-5 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
+                    <img
+                      src={
+                        getMediaUrl(
+                          (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
+                          contact.urlPicture ||
+                          contact.profilePicUrl
+                        ) || "/nopicture.png"
+                      }
+                      alt={contact.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-medium text-gray-900 dark:text-white truncate" title={contact.name}>
+                      {contact.name}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate" title={contact.email}>
+                      {contact.email}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      {formatPhoneNumber(contact.number)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"><Edit className="w-5 h-5" /></button>
+                    <button onClick={() => { setConfirmOpen(true); setDeletingContact(contact); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"><Trash2 className="w-5 h-5" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
       }
+      </div>
     </MainContainer>
   );
 };

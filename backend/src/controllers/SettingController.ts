@@ -9,9 +9,26 @@ import ListSettingsServiceOne from "../services/SettingServices/ListSettingsServ
 import GetSettingService from "../services/SettingServices/GetSettingService";
 import UpdateOneSettingService from "../services/SettingServices/UpdateOneSettingService";
 import GetPublicSettingService from "../services/SettingServices/GetPublicSettingService";
+import { getActiveSavedFilterCronConfig, rescheduleSavedFilterCron, updateCronSettingsAndReschedule } from "../jobs/SavedFilterCronManager";
 
 type LogoRequest = {
   mode: string;
+};
+
+// ===== SavedFilter Cron Config (helpers para frontend) =====
+export const getSavedFilterCronConfig = async (req: Request, res: Response): Promise<Response> => {
+  const cfg = getActiveSavedFilterCronConfig();
+  return res.status(200).json(cfg);
+};
+
+export const updateSavedFilterCronConfig = async (req: Request, res: Response): Promise<Response> => {
+  const { expr, tz } = req.body as { expr: string; tz: string };
+  if (!expr || !tz) {
+    return res.status(400).json({ error: "'expr' e 'tz' são obrigatórios" });
+  }
+  await updateCronSettingsAndReschedule(expr, tz);
+  const cfg = getActiveSavedFilterCronConfig();
+  return res.status(200).json(cfg);
 };
 
 type PrivateFileRequest = {
@@ -57,6 +74,11 @@ export const update = async (
   const { value } = req.body;
   const { companyId } = req.user;
 
+  // Validação: impedir atualização sem 'value'
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: "'value' é obrigatório" });
+  }
+
   const setting = await UpdateSettingService({
     key,
     value,
@@ -93,10 +115,20 @@ export const updateOne = async (
   const { settingKey: key } = req.params;
   const { value } = req.body;
 
+  // Validação: impedir atualização sem 'value'
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: "'value' é obrigatório" });
+  }
+
   const setting = await UpdateOneSettingService({
     key,
     value
   });
+
+  // Se for configuração do cron de savedFilter, re-agenda com base nas configs atuais
+  if (key === "SAVED_FILTER_CRON" || key === "SAVED_FILTER_TZ") {
+    await rescheduleSavedFilterCron();
+  }
 
   return res.status(200).json(setting); 
 };

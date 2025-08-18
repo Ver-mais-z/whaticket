@@ -14,6 +14,9 @@ const uploadPrivate = multer(uploadPrivateConfig);
 const settingRoutes = Router();
 
 settingRoutes.get("/settings", isAuth, SettingController.index);
+// SavedFilter Cron Config (específico) - definir ANTES de '/settings/:settingKey'
+settingRoutes.get("/settings/saved-filter-cron", isAuth, SettingController.getSavedFilterCronConfig);
+settingRoutes.put("/settings/saved-filter-cron", isAuth, SettingController.updateSavedFilterCronConfig);
 
 settingRoutes.get("/settings/:settingKey", isAuth, SettingController.showOne);
 
@@ -34,4 +37,5 @@ settingRoutes.post(
   uploadPrivate.single("file"),
   SettingController.storePrivateFile
 )
+
 export default settingRoutes;

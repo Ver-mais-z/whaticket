@@ -9,15 +9,12 @@ app.get('/health', (req, res) => {
 });
 // --- Fim do Healthcheck ---
 
-import cron from "node-cron";
 import { initIO } from "./libs/socket";
 import logger from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";
 import BullQueue from './libs/queue';
-import { Op } from "sequelize";
-import ContactList from "./models/ContactList";
-import SyncContactListBySavedFilterService from "./services/ContactListService/SyncContactListBySavedFilterService";
+import { initSavedFilterCron } from "./jobs/SavedFilterCronManager";
 
 import { startQueueProcess } from "./queues";
 // import { ScheduledMessagesJob, ScheduleMessagesGenerateJob, ScheduleMessagesEnvioJob, ScheduleMessagesEnvioForaHorarioJob } from "./wbotScheduledMessages";
@@ -58,29 +55,8 @@ process.on("unhandledRejection", (reason, p) => {
   );
 });
 
-// Cron diário para sincronizar listas com savedFilter (02:00 horário do servidor)
-cron.schedule("0 4 * * *", async () => {
-  try {
-    logger.info("Iniciando sincronização diária de listas com savedFilter");
-    const lists = await ContactList.findAll({
-      where: { savedFilter: { [Op.ne]: null } },
-      attributes: ["id", "companyId"]
-    });
-    for (const list of lists) {
-      try {
-        await SyncContactListBySavedFilterService({
-          contactListId: (list as any).id,
-          companyId: (list as any).companyId
-        });
-      } catch (err: any) {
-        logger.error("Erro ao sincronizar lista", { id: (list as any).id, error: err.message });
-      }
-    }
-    logger.info(`Sincronização diária concluída para ${lists.length} listas`);
-  } catch (error: any) {
-    logger.error("Erro no cron de sincronização de savedFilter", { message: error.message });
-  }
-});
+// Inicializa o cron de sincronização de savedFilter (configurável por env/Settings)
+initSavedFilterCron();
 
 initIO(server);
 gracefulShutdown(server);
