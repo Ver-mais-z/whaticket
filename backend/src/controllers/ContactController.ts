@@ -21,6 +21,7 @@ import UpdateContactService from "../services/ContactServices/UpdateContactServi
 import DeleteContactService from "../services/ContactServices/DeleteContactService";
 import GetContactService from "../services/ContactServices/GetContactService";
 import BulkDeleteContactsService from "../services/ContactServices/BulkDeleteContactsService";
+import BulkRefreshContactAvatarsService from "../services/ContactServices/BulkRefreshContactAvatarsService";
 
 import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import CheckIsValidContact from "../services/WbotServices/CheckIsValidContact";
@@ -600,4 +601,21 @@ export const getContactProfileURL = async (req: Request, res: Response) => {
     const contacts = contactsAll.filter(contact => contact.channel == "whatsapp");
 
     return res.json(contacts);
+  };
+
+  export const bulkRefreshAvatars = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+    const { contactIds, limit } = req.body;
+    const { companyId } = req.user;
+
+    try {
+      await BulkRefreshContactAvatarsService({
+        companyId,
+        contactIds,
+        limit
+      });
+
+      return res.status(200).json({ message: "Avatares atualizados com sucesso" });
+    } catch (error) {
+      return res.status(500).json({ error: "Erro ao atualizar avatares" });
+    }
   };

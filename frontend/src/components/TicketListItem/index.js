@@ -32,7 +32,7 @@ import facebookIcon from "../../assets/facebook.png";
 import insatagramIcon from "../../assets/instagram.png";
 import whatsappIcon from "../../assets/whatsapp.png";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 
 const useStyles = makeStyles((theme) => ({
     ticket: {
@@ -410,9 +410,9 @@ const TicketListItem = ({ ticket }) => {
                             />
                         }
                     >
-                        <Avatar
+                        <ContactAvatar
+                            contact={ticket?.contact}
                             alt={ticket?.contact?.name}
-                            src={getMediaUrl(ticket?.contact?.urlPicture)}
                         />
                     </Badge>
                 </ListItemAvatar>

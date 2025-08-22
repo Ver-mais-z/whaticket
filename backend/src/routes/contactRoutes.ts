@@ -35,6 +35,7 @@ contactRoutes.post("/contacts/upload", isAuth, upload.array("file"), ContactCont
 contactRoutes.get("/contactTags/:contactId", isAuth, ContactController.getContactTags);
 contactRoutes.put("/contacts/toggleDisableBot/:contactId", isAuth, ContactController.toggleDisableBot);
 contactRoutes.put("/contact-wallet/:contactId", isAuth, ContactController.updateContactWallet);
+contactRoutes.post("/contacts/bulk-refresh-avatars", isAuth, ContactController.bulkRefreshAvatars);
 // contactRoutes.get("/contacts/list-whatsapp", isAuth, ContactController.listWhatsapp);
 
 export default contactRoutes;

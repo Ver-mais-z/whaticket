@@ -22,7 +22,7 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import { SocketContext } from "../../context/Socket/SocketContext";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 import {  ReportProblem, VisibilityOutlined } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { yellow } from "@mui/material/colors";
@@ -223,7 +223,7 @@ const DashboardManage = () => {
                   <List style={{ paddingTop: 0 }} key={ticket.id}>
                     <ListItem dense button>
                       <ListItemAvatar>
-                        <Avatar alt={`${ticket.contact.name}`} src={getMediaUrl(ticket.contact.urlPicture)} />
+                        <ContactAvatar contact={ticket.contact} alt={`${ticket.contact.name}`} />
                       </ListItemAvatar>
                       <ListItemText
                         disableTypography
@@ -311,7 +311,7 @@ const DashboardManage = () => {
                   <List style={{ paddingTop: 0 }} key={ticket.id}>
                     <ListItem dense button>
                       <ListItemAvatar>
-                        <Avatar alt={`${ticket.contact.name}`} src={getMediaUrl(ticket.contact.urlPicture)} />
+                        <ContactAvatar contact={ticket.contact} alt={`${ticket.contact.name}`} />
                       </ListItemAvatar>
                       <ListItemText
                         disableTypography

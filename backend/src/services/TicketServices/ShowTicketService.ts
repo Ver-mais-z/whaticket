@@ -10,6 +10,7 @@ import Company from "../../models/Company";
 import QueueIntegrations from "../../models/QueueIntegrations";
 import TicketTag from "../../models/TicketTag";
 import RefreshContactAvatarService from "../ContactServices/RefreshContactAvatarService";
+import logger from "../../utils/logger";
 
 const ShowTicketService = async (
   id: string | number,
@@ -123,7 +124,20 @@ const ShowTicketService = async (
   // Atualiza/baixa avatar automaticamente ao abrir o ticket
   try {
     if (ticket.contactId) {
-      await RefreshContactAvatarService({ contactId: ticket.contactId, companyId, whatsappId: ticket.whatsappId });
+      logger.info({
+        ticketId: ticket.id,
+        contactId: ticket.contactId,
+        companyId
+      }, "[ShowTicket] calling RefreshContactAvatarService");
+      
+      const updatedContact = await RefreshContactAvatarService({ contactId: ticket.contactId, companyId, whatsappId: ticket.whatsappId });
+      
+      logger.info({
+        ticketId: ticket.id,
+        contactId: ticket.contactId,
+        updatedContactUrlPicture: updatedContact?.getDataValue("urlPicture")
+      }, "[ShowTicket] RefreshContactAvatarService result");
+      
       await ticket.reload({
         attributes: [
           "id",

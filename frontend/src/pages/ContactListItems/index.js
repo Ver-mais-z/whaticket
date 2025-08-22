@@ -28,7 +28,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
 import useContactLists from "../../hooks/useContactLists";
 import { Chip, Typography, Tooltip } from "@material-ui/core";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../../components/ContactAvatar";
 import { Search, List as ListIcon, Upload as UploadIcon, Filter as FilterIcon, Plus as PlusIcon, Edit, Trash2, CheckCircle, Ban } from "lucide-react";
 
 import planilhaExemplo from "../../assets/planilha.xlsx";
@@ -125,6 +125,7 @@ const ContactListItems = () => {
 
   const { findById: findContactList } = useContactLists();
 
+
   const refreshContactList = () => {
     findContactList(contactListId).then((data) => {
       setContactList(data);
@@ -176,6 +177,7 @@ const ContactListItems = () => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [searchParam, pageNumber, contactListId, refreshKey]);
+
 
   useEffect(() => {
     const companyId = user.companyId;
@@ -529,20 +531,9 @@ const ContactListItems = () => {
                         <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
                           <Tooltip {...CustomTooltipProps} title={contact.name}>
                             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
-                              <img
-                                src={
-                                  getMediaUrl(
-                                    (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
-                                    contact.urlPicture ||
-                                    contact.profilePicUrl
-                                  ) || "/nopicture.png"
-                                }
-                                alt={contact.name}
+                              <ContactAvatar 
+                                contact={contact.contact || contact}
                                 className="w-10 h-10 rounded-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = "/nopicture.png";
-                                }}
                               />
                             </div>
                           </Tooltip>
@@ -598,17 +589,9 @@ const ContactListItems = () => {
                     )}
                   </div>
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
-                    <img
-                      src={
-                        getMediaUrl(
-                          (contact.contact && (contact.contact.urlPicture || contact.contact.profilePicUrl)) ||
-                          contact.urlPicture ||
-                          contact.profilePicUrl
-                        ) || "/nopicture.png"
-                      }
-                      alt={contact.name}
+                    <ContactAvatar 
+                      contact={contact.contact || contact}
                       className="w-10 h-10 rounded-full object-cover"
-                      onError={(e) => { e.target.onerror = null; e.target.src = "/nopicture.png"; }}
                     />
                   </div>
                   <div className="flex flex-col flex-1 min-w-0">

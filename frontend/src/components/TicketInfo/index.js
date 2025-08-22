@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { i18n } from "../../translate/i18n";
 import { Avatar, CardHeader, Grid, TextField, Input, InputAdornment, InputLabel } from "@material-ui/core";
 import { TagsKanbanContainer } from "../TagsKanbanContainer";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 
 const TicketInfo = ({ contact, ticket, onClick }) => {
 	const [amount, setAmount] = useState("");
@@ -14,7 +14,7 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
 				style={{ cursor: "pointer" }}
 				titleTypographyProps={{ noWrap: true }}
 				subheaderTypographyProps={{ noWrap: true }}
-				avatar={<Avatar src={getMediaUrl(contact?.urlPicture)} alt="contact_image" />}
+				avatar={<ContactAvatar contact={contact} alt="contact_image" />}
 				title={`${contact?.name || '(sem contato)'} #${ticket.id}`}
 				subheader={
 					ticket.user &&

@@ -26,7 +26,7 @@ import useCompanySettings from "../../hooks/useSettings/companySettings";
 import Favicon from "react-favicon";
 import { getBackendUrl } from "../../config";
 import defaultLogoFavicon from "../../assets/favicon.ico";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
 
 const useStyles = makeStyles(theme => ({
@@ -237,7 +237,7 @@ const NotificationsPopOver = (volume) => {
 
 		const options = {
 			body: `${message.body} - ${format(new Date(), "HH:mm")}`,
-			icon: getMediaUrl(contact.urlPicture),
+			icon: contact.urlPicture ? `${getBackendUrl()}${contact.urlPicture}` : `${getBackendUrl()}/nopicture.png`,
 			tag: ticket.id,
 			renotify: true,
 		};

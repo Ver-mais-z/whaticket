@@ -15,7 +15,7 @@ import { Button, Divider, useTheme, } from "@material-ui/core";
 import { isNil } from 'lodash';
 import ShowTicketOpen from '../ShowTicketOpenModal';
 import { grey } from '@material-ui/core/colors';
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 
 const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
     const theme = useTheme();
@@ -177,12 +177,8 @@ const VcardPreview = ({ contact, numbers, queueId, whatsappId }) => {
                 />
                 <Grid container spacing={1}>
                     <Grid item xs={2}>
-                        <Avatar 
-                            src={getMediaUrl(selectedContact?.profilePicUrl) || "/nopicture.png"}
-                            onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "/nopicture.png";
-                            }}
+                        <ContactAvatar 
+                            contact={selectedContact}
                         />
                     </Grid>
                     <Grid item xs={9}>

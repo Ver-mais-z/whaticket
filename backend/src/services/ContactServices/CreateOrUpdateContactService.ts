@@ -182,7 +182,8 @@ if (!isGroup) {
         oldPath = path.resolve(contact.urlPicture.replace(/\\/g, '/'));
         fileName = path.join(folder, oldPath.split('\\').pop());
       }
-      if (!fs.existsSync(fileName) || contact.profilePicUrl === "") {
+      // Sempre tenta atualizar imagem se não tem urlPicture ou se arquivo não existe
+      if (!contact.urlPicture || !fs.existsSync(fileName) || contact.profilePicUrl === "") {
         if (wbot && ['whatsapp'].includes(channel)) {
           try {
             console.log(120, "CreateUpdateContactService")
@@ -224,7 +225,6 @@ if (!isGroup) {
         channel,
         acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
         remoteJid: newRemoteJid,
-        urlPicture: "",
         whatsappId
       });
 

@@ -29,7 +29,7 @@ import toastError from "../../errors/toastError";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
 import ContactTag from "../ContactTag";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 
 const useStyles = makeStyles(theme => ({
     ticket: {
@@ -134,9 +134,9 @@ const TicketListForwardMessageItem = ({ ticket, selectedTicket, sendData }) => {
                 })}
             >
                 <ListItemAvatar>
-                    <Avatar
-                        src={getMediaUrl(ticket.contact.urlPicture)}
-                    ></Avatar>
+                    <ContactAvatar
+                        contact={ticket.contact}
+                    />
                 </ListItemAvatar>
                 <ListItemText
                     disableTypography

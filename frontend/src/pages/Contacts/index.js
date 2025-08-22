@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
+import useContactUpdates from "../../hooks/useContactUpdates";
 
 import {
     Search,
@@ -28,7 +29,7 @@ import {
 import { Facebook, Instagram, WhatsApp, ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
 import { Tooltip, Menu, MenuItem } from "@material-ui/core";
 import api from "../../services/api";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../../components/ContactAvatar";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
 import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
@@ -204,6 +205,32 @@ const Contacts = () => {
                         }, 500);
                         return () => clearTimeout(delayDebounceFn);
                     }, [searchParam, pageNumber, selectedTags]);
+
+    // Hook para atualização em tempo real de avatares
+    useContactUpdates((updatedContact) => {
+        dispatch({ type: "UPDATE_CONTACTS", payload: updatedContact });
+    });
+
+    // Atualização silenciosa de avatares ao carregar a página
+    useEffect(() => {
+        const refreshAvatars = async () => {
+            if (contacts.length > 0) {
+                try {
+                    const contactIds = contacts.map(c => c.id);
+                    await api.post('/contacts/bulk-refresh-avatars', {
+                        contactIds: contactIds.slice(0, 20) // Limita a 20 contatos por vez
+                    });
+                } catch (error) {
+                    // Falha silenciosa - não mostra erro ao usuário
+                    console.log('Falha na atualização silenciosa de avatares:', error);
+                }
+            }
+        };
+
+        // Executa após 2 segundos da página carregar
+        const timer = setTimeout(refreshAvatars, 2000);
+        return () => clearTimeout(timer);
+    }, [contacts.length > 0]); // Executa quando contatos são carregados
 
     useEffect(() => {
         const companyId = user.companyId;
@@ -628,32 +655,13 @@ const Contacts = () => {
                                                 onChange={handleToggleSelectContact(contact.id)}
                                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                         </td>
-<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
-                                                    {(contact.urlPicture || contact.profilePicUrl) ? (
-                                                        <img
-                                                            src={
-                                                              getMediaUrl(contact.urlPicture) ||
-                                                              getMediaUrl(contact.profilePicUrl) ||
-                                                              "/nopicture.png"
-                                                            }
-                                                            alt={contact.name}
-                                                            className="w-10 h-10 rounded-full object-cover"
-                                                            onError={(e) => {
-                                                                // Tenta WhatsApp profilePicUrl; se falhar, usa padrão
-                                                                if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = getMediaUrl(contact.profilePicUrl);
-                                                                } else {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = "/nopicture.png";
-                                                                }
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        contact.name?.charAt(0)
-                                                    )}
+                                                    <ContactAvatar 
+                                                        contact={contact}
+                                                        style={{ width: "40px", height: "40px" }}
+                                                    />
                                                 </div>
                                             </Tooltip>
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
@@ -809,28 +817,10 @@ const Contacts = () => {
                     {contacts.map((contact) => (
                         <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
-                                {(contact.urlPicture || contact.profilePicUrl) ? (
-                                    <img
-                                        src={
-                                          getMediaUrl(contact.urlPicture) ||
-                                          getMediaUrl(contact.profilePicUrl) ||
-                                          "/nopicture.png"
-                                        }
-                                        alt={contact.name}
-                                        className="w-10 h-10 rounded-full object-cover"
-                                        onError={(e) => {
-                                            if (contact.profilePicUrl && !e.target.src.includes(contact.profilePicUrl)) {
-                                                e.target.onerror = null;
-                                                e.target.src = getMediaUrl(contact.profilePicUrl);
-                                            } else {
-                                                e.target.onerror = null;
-                                                e.target.src = "/nopicture.png";
-                                            }
-                                        }}
-                                    />
-                                ) : (
-                                    contact.name?.charAt(0)
-                                )}
+                                <ContactAvatar 
+                                    contact={contact}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                />
                             </div>
                             <div className="flex flex-col flex-1 min-w-0">
                                 <span className="font-medium text-gray-900 dark:text-white truncate" title={contact.name}>

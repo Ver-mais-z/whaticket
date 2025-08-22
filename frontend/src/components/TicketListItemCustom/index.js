@@ -36,7 +36,7 @@ import { SocketContext } from "../../context/Socket/SocketContext";
 import { TicketsContext } from "../../context/Tickets/TicketsContext";
 
 import ContactTag from "../ContactTag";
-import { getMediaUrl } from "../../helpers/getMediaUrl";
+import ContactAvatar from "../ContactAvatar";
 import { v4 as uuidv4 } from "uuid";
 
 import GroupIcon from '@material-ui/icons/Group';
@@ -579,8 +579,8 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                 </DialogTitle>
                 
                 <div className={classes.messagesHeader}>
-                    <img 
-                        src={getMediaUrl(ticket?.contact?.urlPicture)}
+                    <ContactAvatar 
+                        contact={ticket?.contact}
                         className={classes.messageAvatar}
                     />
                     <div>
@@ -659,14 +659,12 @@ const TicketListItemCustom = ({ setTabOpen, ticket }) => {
                 <ListItemAvatar
                     style={{ marginLeft: "-15px" }}
                 >
-                    <img
+                    <ContactAvatar
+                        contact={ticket?.contact}
                         style={{
                             width: "50px",
                             height: "50px",
-                            borderRadius: "50%",
                         }}
-                        src={getMediaUrl(ticket?.contact?.urlPicture)}
-
                     />
                 </ListItemAvatar>
                 <ListItemText
