@@ -21,38 +21,55 @@ function checkPort(port) {
   });
 }
 
-async function killProcessOnPort(port) {
+async function killProcessOnPort(port, maxAttempts = 5) {
   console.log(`Tentando liberar a porta ${port}...`);
   if (process.platform === 'win32') {
     // Windows
-    exec(`netstat -ano | findstr :${port}`, (err, stdout, stderr) => {
-      if (err) {
-        console.error(`Erro ao executar netstat: ${stderr}`);
-        return;
-      }
-      const lines = stdout.split('\n');
-      const pids = [];
-      lines.forEach(line => {
-        const match = line.match(/\sLISTENING\s+(\d+)/);
-        if (match) {
-          pids.push(match[1]);
-        }
-      });
-
-      if (pids.length > 0) {
-        pids.forEach(pid => {
-          exec(`taskkill /PID ${pid} /F`, (err, stdout, stderr) => {
-            if (err) {
-              console.error(`Erro ao matar processo ${pid}: ${stderr}`);
-            } else {
-              console.log(`Processo ${pid} na porta ${port} finalizado.`);
+    let attempt = 0;
+    let found = true;
+    while (found && attempt < maxAttempts) {
+      found = false;
+      await new Promise((resolve) => {
+        exec(`netstat -ano | findstr :${port}`, (err, stdout, stderr) => {
+          if (err) {
+            console.error(`Erro ao executar netstat: ${stderr}`);
+            resolve();
+            return;
+          }
+          const lines = stdout.split('\n');
+          const pids = [];
+          lines.forEach(line => {
+            const match = line.match(/\sLISTENING\s+(\d+)/);
+            if (match) {
+              pids.push(match[1]);
             }
           });
+
+          if (pids.length > 0) {
+            found = true;
+            let killed = 0;
+            pids.forEach(pid => {
+              exec(`taskkill /PID ${pid} /F`, (err, stdout, stderr) => {
+                if (err) {
+                  console.error(`Erro ao matar processo ${pid}: ${stderr}`);
+                } else {
+                  console.log(`Processo ${pid} na porta ${port} finalizado.`);
+                }
+                killed++;
+                if (killed === pids.length) resolve();
+              });
+            });
+          } else {
+            resolve();
+          }
         });
-      } else {
-        console.log(`Nenhum processo encontrado na porta ${port}.`);
-      }
-    });
+      });
+      attempt++;
+      if (found) await new Promise(r => setTimeout(r, 1000));
+    }
+    if (attempt === maxAttempts) {
+      console.warn(`Ainda restam processos na porta ${port} após ${maxAttempts} tentativas.`);
+    }
   } else {
     // Linux/macOS
     exec(`lsof -t -i :${port} | xargs kill -9`, (err, stdout, stderr) => {

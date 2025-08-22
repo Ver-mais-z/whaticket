@@ -78,11 +78,29 @@ const CreateOrUpdateContactServiceForImport = async ({
   contact = await Contact.findOne({ where: { number, companyId } });
 
   if (contact) {
-    await contact.update({
+    // Proteção: não sobrescrever nome personalizado já válido
+    const currentName = (contact.name || "").trim();
+    const currentIsNumber = currentName.replace(/\D/g, "") === String(number);
+    const hasValidExistingName = currentName !== "" && !currentIsNumber;
+
+    const incomingName = (name || "").trim();
+    const incomingIsNumber = incomingName.replace(/\D/g, "") === String(number);
+
+    const updatePayload: any = {
       ...contactData,
       situation: situation || contact.situation,
       creditLimit: creditLimit ? String(creditLimit) : contact.creditLimit
-    });
+    };
+
+    if (hasValidExistingName) {
+      // Não atualizar o campo name
+      delete updatePayload.name;
+    } else {
+      // Atualiza apenas se vier um nome melhor que não seja número; senão mantém número
+      updatePayload.name = incomingName && !incomingIsNumber ? incomingName : String(number);
+    }
+
+    await contact.update(updatePayload);
 
     io.of(String(companyId))
       .emit(`company-${companyId}-contact`, {
@@ -97,6 +115,14 @@ const CreateOrUpdateContactServiceForImport = async ({
         action: "create",
         contact
       });
+  }
+
+  // Chama o serviço centralizado para atualizar nome/avatar com proteção
+  try {
+    const RefreshContactAvatarService = (await import("./RefreshContactAvatarService")).default;
+    await RefreshContactAvatarService({ contactId: contact.id, companyId });
+  } catch (err) {
+    console.warn("Falha ao atualizar avatar/nome centralizado", err);
   }
 
   return contact;

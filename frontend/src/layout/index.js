@@ -138,7 +138,10 @@ const useStyles = makeStyles((theme) => ({
     color: "white",
   },
   drawerPaper: {
-    position: "relative",
+    position: "fixed",
+    top: 0,
+    left: 0,
+    height: "100vh",
     whiteSpace: "nowrap",
     // overflowX: "hidden",
     width: drawerWidth,
@@ -151,6 +154,10 @@ const useStyles = makeStyles((theme) => ({
   },
 
   drawerPaperClose: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    height: "100vh",
     overflowX: "hidden",
     overflowY: "hidden",
     transition: theme.transitions.create("width", {
@@ -169,6 +176,21 @@ const useStyles = makeStyles((theme) => ({
   content: {
     flex: 1,
     overflow: "visible", position: "relative",
+  },
+  contentShift: {
+    marginLeft: drawerWidth,
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: 0,
+    },
+  },
+  contentShiftClose: {
+    marginLeft: theme.spacing(7),
+    [theme.breakpoints.up("sm")]: {
+      marginLeft: theme.spacing(9),
+    },
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: 0,
+    },
   },
   container: {
     paddingTop: theme.spacing(4),
@@ -451,7 +473,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
       </Drawer>
 
       <AppBar
-        position="absolute"
+        position="fixed"
         className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
         color="primary"
       >
@@ -591,7 +613,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
           </div>
         </Toolbar>
       </AppBar>
-      <main className={classes.content}>
+      <main className={clsx(classes.content, drawerOpen ? classes.contentShift : classes.contentShiftClose)}>
         <div className={classes.appBarSpacer} />
 
         {children ? children : null}

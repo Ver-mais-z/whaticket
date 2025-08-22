@@ -404,13 +404,20 @@ const Contacts = () => {
         setPageNumber((prevState) => prevState + 1);
     };
 
-    const handleScroll = (e) => {
-        if (!hasMore || loading) return;
-        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-        if (scrollHeight - (scrollTop + 100) < clientHeight) {
-            loadMore();
-        }
-    };
+    // Scroll da janela (barra do navegador) para carregar mais
+    useEffect(() => {
+        const onScroll = () => {
+            if (!hasMore || loading) return;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const winHeight = window.innerHeight;
+            const docHeight = document.documentElement.scrollHeight;
+            if (docHeight - (scrollTop + winHeight) < 100) {
+                loadMore();
+            }
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, [hasMore, loading]);
 
     const formatPhoneNumber = (number) => {
         if (!number) return "";
@@ -422,6 +429,13 @@ const Contacts = () => {
             }
         }
         return number;
+    };
+
+    // Trunca texto para um tamanho máximo e adiciona reticências
+    const truncateText = (text, max = 50) => {
+        if (!text) return "";
+        const str = String(text);
+        return str.length > max ? str.slice(0, max) + "..." : str;
     };
 
     // Função para lidar com a navegação de página
@@ -466,8 +480,8 @@ const Contacts = () => {
     };
 
     return (
-        <MainContainer>
-<div className="w-full h-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900" onScroll={handleScroll}>
+        <MainContainer useWindowScroll>
+<div className="w-full p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
                 <NewTicketModal
                     modalOpen={newTicketModalOpen}
                     initialContact={contactTicket}
@@ -627,8 +641,8 @@ const Contacts = () => {
 
                 {/* Tabela de Contatos (Desktop) */}
                 <div className="hidden md:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <div className="overflow-x-hidden">
+                        <table className="w-full table-auto text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 sticky top-0 z-10">
                                 <tr>
                                     <th scope="col" className="p-4">
@@ -637,7 +651,7 @@ const Contacts = () => {
                                             onChange={handleSelectAllContacts}
                                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                     </th>
-                                    <th scope="col" className="px-6 py-3">Nome</th>
+                                    <th scope="col" className="px-6 py-3 w-[360px]">Nome</th>
                                     <th scope="col" className="px-2 py-3">WhatsApp</th>
                                     <th scope="col" className="px-6 py-3">Email</th>
                                     <th scope="col" className="px-6 py-3">Cidade/UF</th>
@@ -647,7 +661,7 @@ const Contacts = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {contacts.map((contact) => (
+                                {contacts.filter(contact => !contact.isGroup).map((contact) => (
                                     <tr key={contact.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                         <td className="w-4 p-4">
                                             <input type="checkbox"
@@ -655,7 +669,7 @@ const Contacts = () => {
                                                 onChange={handleToggleSelectContact(contact.id)}
                                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 max-w-[200px] overflow-hidden text-ellipsis">
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 w-[360px] max-w-[360px] overflow-hidden text-ellipsis">
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
                                                     <ContactAvatar 
@@ -665,12 +679,12 @@ const Contacts = () => {
                                                 </div>
                                             </Tooltip>
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
-                                                <span className="truncate" style={{maxWidth: 'calc(100% - 40px)'}}>
+                                                <span className="truncate flex-1 min-w-0">
                                                     {contact.name}
                                                 </span>
                                             </Tooltip>
                                         </td>
-                                        <td className="px-2 py-4">
+                                        <td className="px-2 py-4 whitespace-nowrap">
                                             {formatPhoneNumber(contact.number)}
                                         </td>
 <td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
@@ -678,22 +692,25 @@ const Contacts = () => {
                                                 <span className="truncate">{contact.email}</span>
                                             </Tooltip>
                                         </td>
-                                        <td className="px-6 py-4">{contact.city}</td>
-                                            <td className="px-6 py-4" title={contact.tags.length > 2 ? contact.tags.slice(2).map(t => t.name).join(", ") : ""}>
-                                                <div className="flex items-center gap-1">
-                                                    {contact.tags.slice(0, 2).map((tag) => (
+                                        <td className="px-6 py-4 max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                            <Tooltip {...CustomTooltipProps} title={contact.city}>
+                                                <span className="truncate">{contact.city}</span>
+                                            </Tooltip>
+                                        </td>
+                                        <td className="px-2 py-4">
+                                            <div className="flex items-center gap-1">
+                                                {contact.tags && contact.tags.slice(0, 6).map((tag) => (
+                                                    <Tooltip {...CustomTooltipProps} title={tag.name} key={tag.id}>
                                                         <span
-                                                            key={tag.id}
-                                                            className="px-2 py-1 text-xs font-medium text-white rounded-full"
-                                                            style={{ backgroundColor: tag.color }}
-                                                        >
-                                                            {tag.name}
-                                                        </span>
-                                                    ))}
-                                                {contact.tags.length > 2 && (
-                                                    <Tooltip {...CustomTooltipProps} title={contact.tags.slice(2).map(t => t.name).join(", ")}>
-                                                        <span className="px-2 py-1 text-xs font-medium text-white rounded-full bg-gray-400 dark:bg-gray-600 cursor-default select-none">
-                                                            ...
+                                                            className="inline-block w-3 h-3 rounded-full"
+                                                            style={{ backgroundColor: tag.color || '#9CA3AF' }}
+                                                        ></span>
+                                                    </Tooltip>
+                                                ))}
+                                                {contact.tags && contact.tags.length > 6 && (
+                                                    <Tooltip {...CustomTooltipProps} title={contact.tags.slice(6).map(t => t.name).join(", ")}>
+                                                        <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-semibold text-white rounded-full bg-gray-400 dark:bg-gray-600 select-none">
+                                                            +{contact.tags.length - 6}
                                                         </span>
                                                     </Tooltip>
                                                 )}
@@ -712,7 +729,7 @@ const Contacts = () => {
                                                 {contact.situation || (contact.active ? 'Ativo' : 'Inativo')}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td className="px-2 py-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
                                                 <Tooltip {...CustomTooltipProps} title="Enviar mensagem pelo WhatsApp">
                                                     <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
@@ -814,7 +831,7 @@ const Contacts = () => {
 
                 {/* Lista de Contatos (Mobile) */}
                 <div className="md:hidden flex flex-col gap-2 mt-4">
-                    {contacts.map((contact) => (
+                    {contacts.filter(contact => !contact.isGroup).map((contact) => (
                         <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
                                 <ContactAvatar 
@@ -824,7 +841,7 @@ const Contacts = () => {
                             </div>
                             <div className="flex flex-col flex-1 min-w-0">
                                 <span className="font-medium text-gray-900 dark:text-white truncate" title={contact.name}>
-                                    {contact.name}
+                                    {truncateText(contact.name, 25)}
                                 </span>
                                 <span className="text-sm text-gray-500 dark:text-gray-400 truncate" title={contact.email}>
                                     {contact.email}

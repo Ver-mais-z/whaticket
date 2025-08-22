@@ -162,6 +162,14 @@ const CreateContactService = async ({
     ]
   });
 
+  // Chama o serviço centralizado para atualizar nome/avatar com proteção
+  try {
+    const RefreshContactAvatarService = (await import("./RefreshContactAvatarService")).default;
+    await RefreshContactAvatarService({ contactId: contact.id, companyId });
+  } catch (err) {
+    logger.warn("Falha ao atualizar avatar/nome centralizado", err);
+  }
+
   if (wallets) {
     await ContactWallet.destroy({
       where: {

@@ -814,8 +814,17 @@ const verifyContact = async (
     return existing; // pode devolver undefined/null se não existir
   }
 
+  console.log('[verifyContact] isGroup:', isGroup, '| msgContact.id:', msgContact.id, '| msgContact.name:', msgContact.name, '| cleaned:', cleaned);
+  // Corrige: nunca sobrescrever nome personalizado
+  let nomeContato = msgContact.name;
+  if (!isGroup) {
+    // Se nome está vazio ou igual ao número, usa número, senão mantém nome
+    if (!nomeContato || nomeContato === cleaned) {
+      nomeContato = cleaned;
+    }
+  }
   const contactData = {
-    name: msgContact.name || cleaned,
+    name: nomeContato,
     number: cleaned,
     profilePicUrl,
     isGroup,
@@ -5277,16 +5286,26 @@ const wbotUserJid = wbot?.user?.id;
 
   wbot.ev.on("contacts.update", (contacts: any) => {
     contacts.forEach(async (contact: any) => {
+      console.log(`[contacts.update] contato: ${contact.id} | notify:`, contact.notify, '| objeto completo:', contact);
       if (!contact?.id) return;
 
       if (typeof contact.imgUrl !== "undefined") {
+        console.log(`[contacts.update] contato: ${contact.id} | nome vindo do WhatsApp (notify):`, contact.notify);
         const newUrl =
           contact.imgUrl === ""
             ? ""
             : await wbot!.profilePictureUrl(contact.id!).catch(() => null);
+        // Busca contato atual no banco
+        const existingContact = await Contact.findOne({ where: { remoteJid: contact.id, companyId } });
+        let newName = existingContact?.name;
+        const numero = contact.id.replace(/\D/g, "");
+        // Só atualiza nome se não existir nome válido
+        if (!newName || newName.replace(/\D/g, "") === numero) {
+          newName = contact.notify && contact.notify.trim() !== "" ? contact.notify : numero;
+        }
         const contactData = {
-          name: contact.id.replace(/\D/g, ""),
-          number: contact.id.replace(/\D/g, ""),
+          name: newName,
+          number: numero,
           isGroup: contact.id.includes("@g.us") ? true : false,
           companyId: companyId,
           remoteJid: contact.id,
@@ -5304,7 +5323,7 @@ const wbotUserJid = wbot?.user?.id;
     if (groupUpdate.length === 0) return;
     groupUpdate.forEach(async (group: GroupMetadata) => {
       const number = group.id.replace(/\D/g, "");
-      const nameGroup = group.subject || number;
+      const nameGroup = group.subject && group.subject.trim() !== "" ? group.subject : "Grupo desconhecido";
 
       let profilePicUrl: string = "";
        try {

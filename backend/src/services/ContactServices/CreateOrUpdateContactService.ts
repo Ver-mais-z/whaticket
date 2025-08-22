@@ -197,8 +197,20 @@ if (!isGroup) {
         }
       }
 
-      if (contact.name === number) {
-        contact.name = name;
+      // Proteção: nunca sobrescrever nome personalizado já válido
+      // Somente definir/atualizar nome quando o atual estiver vazio ou igual ao número
+      const incomingName = (name || "").trim();
+      const currentName = (contact.name || "").trim();
+      const currentIsNumber = currentName.replace(/\D/g, "") === String(number);
+      const hasValidExistingName = currentName !== "" && !currentIsNumber;
+
+      if (hasValidExistingName) {
+        // Não atualizar o campo name em hipótese alguma
+        delete (contactData as any).name;
+      } else {
+        // Nome salvo é vazio ou igual ao número: podemos definir um melhor, senão manter número
+        const incomingIsNumber = incomingName.replace(/\D/g, "") === String(number);
+        contactData.name = incomingName && !incomingIsNumber ? incomingName : String(number);
       }
 
       await contact.update(contactData);
@@ -220,21 +232,33 @@ if (!isGroup) {
         profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
       }
 
-      contact = await Contact.create({
-        ...contactData,
-        channel,
-        acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
-        remoteJid: newRemoteJid,
-        whatsappId
-      });
-
+      // Definir nome efetivo na criação: se não vier nome válido, usa o número como fallback
+      {
+        const incomingName = (name || "").trim();
+        const effectiveName = incomingName && incomingName !== number ? incomingName : number;
+        contact = await Contact.create({
+          ...contactData,
+          name: effectiveName,
+          channel,
+          acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
+          remoteJid: newRemoteJid,
+          whatsappId
+        });
+      }
+      
       createContact = true;
     } else if (['facebook', 'instagram'].includes(channel)) {
-      contact = await Contact.create({
-        ...contactData,
-        channel,
-        whatsappId
-      });
+      // Mesma proteção ao criar via outros canais
+      {
+        const incomingName = (name || "").trim();
+        const effectiveName = incomingName && incomingName !== number ? incomingName : number;
+        contact = await Contact.create({
+          ...contactData,
+          name: effectiveName,
+          channel,
+          whatsappId
+        });
+      }
     }
 
 
@@ -284,13 +308,19 @@ if (!isGroup) {
           contact
         });
     } else {
-      
       io.of(String(companyId))
         .emit(`company-${companyId}-contact`, {
           action: "update",
           contact
         });
-        
+    }
+
+    // Chama o serviço centralizado para atualizar nome/avatar com proteção
+    try {
+      const RefreshContactAvatarService = (await import("./RefreshContactAvatarService")).default;
+      await RefreshContactAvatarService({ contactId: contact.id, companyId, whatsappId });
+    } catch (err) {
+      logger.warn("Falha ao atualizar avatar/nome centralizado", err);
     }
 
     return contact;

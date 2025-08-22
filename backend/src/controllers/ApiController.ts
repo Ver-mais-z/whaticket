@@ -28,6 +28,7 @@ import path from "path";
 import Contact from "../models/Contact";
 import FindOrCreateATicketTrakingService from "../services/TicketServices/FindOrCreateATicketTrakingService";
 import { Mutex } from "async-mutex";
+import RefreshContactAvatarService from "../services/ContactServices/RefreshContactAvatarService";
 
 type WhatsappData = {
   whatsappId: number;
@@ -69,7 +70,7 @@ const createContact = async (
     const validNumber: any = await CheckContactNumber(newContact, companyId, newContact.length > 17);
 
     const contactData = {
-      name: `${validNumber}`,
+      name: "",
       number: validNumber,
       profilePicUrl: "",
       isGroup: false,
@@ -80,6 +81,18 @@ const createContact = async (
     };
 
     const contact = await CreateOrUpdateContactService(contactData);
+
+    // Atualiza nome/avatar proativamente antes de criar o ticket e enviar mensagem
+    // Só chama se for grupo ou se o nome estiver vazio/igual ao número
+    try {
+      const currentName = (contact.name || "").trim();
+      const isNumberName = currentName === "" || currentName.replace(/\D/g, "") === String(contact.number);
+      if (contact.isGroup || isNumberName) {
+        await RefreshContactAvatarService({ contactId: contact.id, companyId: companyId as number, whatsappId });
+      }
+    } catch (e) {
+      // Não bloquear fluxo de envio por falha ao atualizar nome/avatar
+    }
 
     const settings = await CompaniesSettings.findOne({
       where: { companyId }

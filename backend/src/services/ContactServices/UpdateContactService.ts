@@ -167,8 +167,33 @@ const UpdateContactService = async ({
     return value === '' ? '' : value;
   };
 
+  // Proteção de nome: preservar nome personalizado já válido
+  const currentName = (contact.name || "").trim();
+  const currentIsNumber = currentName.replace(/\D/g, "") === String(contact.number);
+  const hasValidExistingName = currentName !== "" && !currentIsNumber;
+
+  let resolvedName = contact.name;
+  if (name === undefined) {
+    resolvedName = contact.name; // sem alteração do campo name
+  } else {
+    const incomingName = (name || "").trim();
+    const incomingIsNumber = incomingName.replace(/\D/g, "") === String(number ?? contact.number);
+
+    if (hasValidExistingName) {
+      // Só aceitar alteração se o novo nome for explicitamente válido (não vazio e não igual ao número)
+      if (incomingName && !incomingIsNumber) {
+        resolvedName = incomingName;
+      } else {
+        resolvedName = contact.name; // ignora tentativa inválida
+      }
+    } else {
+      // Nome atual é vazio ou igual ao número: aceitar um nome melhor, senão manter número
+      resolvedName = incomingName && !incomingIsNumber ? incomingName : String(number ?? contact.number);
+    }
+  }
+
   const updateData: any = {
-    name: name !== undefined ? name : contact.name,
+    name: resolvedName,
     number: number !== undefined ? number : contact.number,
     email: email !== undefined ? emptyToNull(email) : contact.email,
     acceptAudioMessage: acceptAudioMessage !== undefined ? acceptAudioMessage : contact.acceptAudioMessage,
@@ -193,6 +218,14 @@ const UpdateContactService = async ({
   }
 
   await contact.update(updateData);
+
+  // Chama o serviço centralizado para atualizar nome/avatar com proteção
+  try {
+    const RefreshContactAvatarService = (await import("./RefreshContactAvatarService")).default;
+    await RefreshContactAvatarService({ contactId: contact.id, companyId });
+  } catch (err) {
+    console.warn("Falha ao atualizar avatar/nome centralizado", err);
+  }
 
   await contact.reload({
     attributes: [

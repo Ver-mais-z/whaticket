@@ -101,6 +101,68 @@ const RefreshContactAvatarService = async ({ contactId, companyId, whatsappId }:
             ? `${contact.number}@g.us`
             : `${contact.number}@s.whatsapp.net`;
         newProfileUrl = await wbot.profilePictureUrl(jid, "image");
+
+        // Atualiza também o nome do grupo se for grupo
+        if (contact.isGroup) {
+          let groupName = "Grupo desconhecido";
+          try {
+            const groupMeta = await wbot.groupMetadata(jid);
+            if (groupMeta && groupMeta.subject && groupMeta.subject.trim() !== "") {
+              groupName = groupMeta.subject;
+            }
+          } catch (e) {
+            logger.warn({jid, error: e.message}, '[RefreshAvatar] falha ao buscar metadata do grupo para nome');
+          }
+          logger.info({jid, groupName}, '[RefreshAvatar] atualizando nome do grupo junto com avatar');
+          await contact.update({ name: groupName });
+          await contact.reload();
+        }
+        // Atualização de nome de contato comum
+        if (!contact.isGroup) {
+          const nomeAtual = (contact.name || '').trim();
+          // Verifica se o nome é igual ao número (apenas dígitos, sem +, espaços, etc)
+          const soNumero = nomeAtual.replace(/\D/g, "");
+          if (soNumero === contact.number) {
+            let nomeNovo = nomeAtual;
+            try {
+              const contatoMeta = await wbot.onWhatsApp(jid) as Array<{ jid: string; exists: unknown; lid?: unknown; notify?: string }>;
+              logger.info({jid, contatoMeta}, '[RefreshAvatar] resultado de wbot.onWhatsApp para nome');
+              if (Array.isArray(contatoMeta) && contatoMeta[0] && typeof contatoMeta[0].notify === 'string' && contatoMeta[0].notify.trim() !== "") {
+                nomeNovo = contatoMeta[0].notify;
+              } else {
+                // Fallback: tenta buscar perfil business se notify não veio
+                try {
+                  const businessProfile = await wbot.getBusinessProfile(jid);
+                  logger.info({jid, businessProfile}, '[RefreshAvatar] resultado de getBusinessProfile para nome');
+                  // Tente os campos conhecidos do WABusinessProfile
+                  let nomeBusiness = '';
+                  if (businessProfile) {
+                    // Alguns campos possíveis: description, businessDescription, address, category
+                    if (typeof businessProfile.description === 'string' && businessProfile.description.trim() !== '') {
+                      nomeBusiness = businessProfile.description;
+                    }
+                  }
+                  if (
+                    nomeBusiness &&
+                    nomeBusiness.replace(/\D/g, '') !== contact.number
+                  ) {
+                    nomeNovo = nomeBusiness;
+                  }
+                } catch (err) {
+                  logger.warn({jid, error: err.message}, '[RefreshAvatar] falha ao buscar nome via fetchBusinessProfile');
+                }
+              }
+            } catch (e) {
+              logger.warn({jid, error: e.message}, '[RefreshAvatar] falha ao buscar nome do contato');
+            }
+            logger.info({jid, nomeAtual, nomeNovo}, '[RefreshAvatar] comparação nome antes/depois');
+            if (nomeNovo !== nomeAtual && nomeNovo && nomeNovo.replace(/\D/g, "") !== contact.number) {
+              logger.info({jid, nomeAtual, nomeNovo}, '[RefreshAvatar] atualizando nome do contato comum');
+              await contact.update({ name: nomeNovo });
+              await contact.reload();
+            }
+          }
+        }
       } catch (e) {
         Sentry.captureException(e);
         newProfileUrl = `${process.env.FRONTEND_URL}/nopicture.png`;

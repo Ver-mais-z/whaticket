@@ -1,10 +1,6 @@
 [
   {
-    "id": "5519987030008@s.whatsapp.net",
-    "name": "Ricardooooo"
-  },
-  {
-    "id": "5519997495590@s.whatsapp.net",
-    "name": "Beatriz Pedal"
+    "id": "5519996151819@s.whatsapp.net",
+    "name": "Anesio Reis Fundicao Reis"
   }
 ]

@@ -8,6 +8,7 @@ import Ticket from "../../models/Ticket";
 import formatBody from "../../helpers/Mustache";
 import Contact from "../../models/Contact";
 import { getWbot } from "../../libs/wbot";
+import RefreshContactAvatarService from "../ContactServices/RefreshContactAvatarService";
 
 interface Request {
   body: string;
@@ -27,6 +28,20 @@ const SendWhatsAppMessage = async ({
   let options = {};
   const wbot = await getWbot(whatsappId);
   const number = `${contact.number}@${contact.isGroup ? "g.us" : "s.whatsapp.net"}`;
+
+  // Atualiza nome proativamente se ainda estiver vazio/igual ao número (antes do primeiro envio)
+  if (!contact.isGroup) {
+    const currentName = (contact.name || "").trim();
+    const isNumberName = currentName === "" || currentName.replace(/\D/g, "") === String(contact.number);
+    if (isNumberName) {
+      try {
+        await RefreshContactAvatarService({ contactId: contact.id, companyId: (contact as any).companyId, whatsappId });
+        await (contact as any).reload?.();
+      } catch (e) {
+        // não bloquear envio se falhar
+      }
+    }
+  }
 
   if (quotedMsg) {
     const chatMessages = await Message.findOne({

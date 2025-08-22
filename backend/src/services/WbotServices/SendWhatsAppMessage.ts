@@ -15,6 +15,7 @@ import { isNil } from "lodash";
 import fs from "fs";
 
 import formatBody from "../../helpers/Mustache";
+import RefreshContactAvatarService from "../ContactServices/RefreshContactAvatarService";
 
 interface TemplateButton {
   index: number;
@@ -69,6 +70,19 @@ const SendWhatsAppMessage = async ({
     number = contactNumber.remoteJid;
   } else {
     number = `${contactNumber.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
+  }
+
+  // Atualiza nome proativamente se ainda estiver vazio/igual ao número (antes do primeiro envio)
+  if (!ticket.isGroup) {
+    const currentName = (contactNumber.name || "").trim();
+    const isNumberName = currentName === "" || currentName.replace(/\D/g, "") === String(contactNumber.number);
+    if (isNumberName) {
+      try {
+        await RefreshContactAvatarService({ contactId: ticket.contactId, companyId: ticket.companyId, whatsappId: ticket.whatsappId });
+      } catch (e) {
+        // não bloquear envio se falhar
+      }
+    }
   }
 
   if (quotedMsg) {
