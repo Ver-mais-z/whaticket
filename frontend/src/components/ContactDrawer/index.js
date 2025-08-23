@@ -8,16 +8,20 @@ import Drawer from "@material-ui/core/Drawer";
 import Link from "@material-ui/core/Link";
 import InputLabel from "@material-ui/core/InputLabel";
 // import Avatar from "@material-ui/core/Avatar";
-import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
 import CreateIcon from '@material-ui/icons/Create';
+import BlockIcon from "@material-ui/icons/Block";
+import LockOpenIcon from "@material-ui/icons/LockOpen";
+import VolumeUpIcon from "@material-ui/icons/VolumeUp";
+import VolumeOffIcon from "@material-ui/icons/VolumeOff";
 import formatSerializedId from '../../utils/formatSerializedId';
 import { i18n } from "../../translate/i18n";
-import ModalImageCors from "../ModalImageCors"
 import ContactAvatar from "../ContactAvatar";
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
-import { CardHeader, Switch, Tooltip } from "@material-ui/core";
+import { CardHeader, Tooltip, Dialog, DialogContent, CircularProgress, Collapse } from "@material-ui/core";
+import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import ExpandLessIcon from "@material-ui/icons/ExpandLess";
 import { ContactForm } from "../ContactForm";
 import ContactModal from "../ContactModal";
 import { ContactNotes } from "../ContactNotes";
@@ -29,105 +33,157 @@ import api from "../../services/api";
 import { toast } from "react-toastify";
 import { TagsKanbanContainer } from "../TagsKanbanContainer";
 
-
 const drawerWidth = 320;
 
 const useStyles = makeStyles(theme => ({
-	drawer: {
-		width: drawerWidth,
-		flexShrink: 0,
-	},
-	drawerPaper: {
-		width: drawerWidth,
-		display: "flex",
-		borderTop: "1px solid rgba(0, 0, 0, 0.12)",
-		borderRight: "1px solid rgba(0, 0, 0, 0.12)",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-		borderTopRightRadius: 4,
-		borderBottomRightRadius: 4,
-	},
-	header: {
-		display: "flex",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-		backgroundColor: theme.palette.inputBackground,
-		alignItems: "center",
-		padding: theme.spacing(0, 1),
-		minHeight: "50px",
-		justifyContent: "flex-start",
-	},
-	content: {
-		display: "flex",
-		backgroundColor: theme.palette.inputBackground,
-		flexDirection: "column",
-		padding: "8px 0px 8px 8px",
-		height: "100%",
-		justifyContent: "center",
-		overflowY: "scroll",
-		...theme.scrollbarStyles,
-	},
+    drawer: {
+        width: drawerWidth,
+        flexShrink: 0,
+    },
+    drawerPaper: {
+        width: drawerWidth,
+        display: "flex",
+        borderTop: "1px solid rgba(0, 0, 0, 0.12)",
+        borderRight: "1px solid rgba(0, 0, 0, 0.12)",
+        borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+        borderTopRightRadius: 4,
+        borderBottomRightRadius: 4,
+    },
+    header: {
+        display: "flex",
+        borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+        backgroundColor: theme.palette.inputBackground,
+        alignItems: "center",
+        padding: theme.spacing(0, 1),
+        minHeight: "50px",
+        justifyContent: "flex-start",
+    },
+    content: {
+        display: "",
+        backgroundColor: theme.palette.inputBackground,
+        flexDirection: "column",
+        padding: "8px 0px 8px 8px",
+        height: "100%",
+        justifyContent: "center",
+        overflowY: "scroll",
+        ...theme.scrollbarStyles,
+    },
 
-	contactAvatar: {
-		margin: 15,
-		width: 160,
-		height: 160,
-		borderRadius: 10,
-	},
+    contactAvatar: {
+        margin: 15,
+        width: 180,
+        height: 180,
+        borderRadius: 10,
+    },
 
-	contactHeader: {
-		display: "flex",
-		padding: 8,
-		flexDirection: "column",
-		alignItems: "center",
-		justifyContent: "center",
-		"& > *": {
-			margin: 4,
-		},
-	},
+    contactHeader: {
+        display: "flex",
+        padding: 8,
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        "& > *": {
+            margin: 4,
+        },
+    },
 
-	contactDetails: {
-		marginTop: 8,
-		padding: 8,
-		display: "flex",
-		flexDirection: "column",
-	},
-	contactExtraInfo: {
-		marginTop: 4,
-		padding: 6,
-	},
+    nameRow: {
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+    },
+
+    nameText: {
+        flex: "1 1 auto",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        cursor: "pointer",
+        maxWidth: drawerWidth - 80,
+    },
+
+    cardHeaderSubheader: {
+        whiteSpace: "normal",
+        overflow: "visible",
+        display: "block",
+        wordBreak: "break-word",
+        lineHeight: 1.2,
+    },
+
+    contactDetails: {
+        marginTop: 8,
+        padding: 8,
+        display: "flex",
+        flexDirection: "column",
+    },
+    contactExtraInfo: {
+        marginTop: 4,
+        padding: 6,
+    },
 }));
 
 const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) => {
-	const classes = useStyles();
+    const classes = useStyles();
 
-	const [modalOpen, setModalOpen] = useState(false);
-	const [blockingContact, setBlockingContact] = useState(contact.active);
-	const [openForm, setOpenForm] = useState(false);
-	const { get } = useCompanySettings();
-	const [hideNum, setHideNum] = useState(false);
-	const { user } = useContext(AuthContext);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [blockingContact, setBlockingContact] = useState(contact.active);
+    const [openForm, setOpenForm] = useState(false);
+    const { get } = useCompanySettings();
+    const [hideNum, setHideNum] = useState(false);
+    const { user } = useContext(AuthContext);
     const [acceptAudioMessage, setAcceptAudio] = useState(contact.acceptAudioMessage);
+    const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+    const [avatarLargeUrl, setAvatarLargeUrl] = useState(null);
+    const [notesOpen, setNotesOpen] = useState(true);
 
-	useEffect(() => {
-		async function fetchData() {
+    // URL da imagem do avatar para visualização ampliada
+    const avatarImageUrl = contact?.contact
+        ? (contact.contact.profilePicUrl || contact.contact.urlPicture)
+        : (contact?.urlPicture || contact?.profilePicUrl);
 
-			const lgpdHideNumber = await get({
-				"column": "lgpdHideNumber"
-			});
+    useEffect(() => {
+        async function fetchData() {
 
-			if (lgpdHideNumber === "enabled") setHideNum(true);
+            const lgpdHideNumber = await get({
+                "column": "lgpdHideNumber"
+            });
 
-		}
-		fetchData();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [])
+            if (lgpdHideNumber === "enabled") setHideNum(true);
 
-	useEffect(() => {
-		setOpenForm(false);
-	}, [open, contact]);
+        }
+        fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
-	
+    useEffect(() => {
+        setOpenForm(false);
+    }, [open, contact]);
 
-	const handleContactToggleAcceptAudio = async () => {
+    // Carrega a imagem grande ao abrir o modal
+    useEffect(() => {
+        let revokeUrl = null;
+        const fetchImage = async () => {
+            try {
+                if (!avatarImageUrl) return;
+                const { data, headers } = await api.get(avatarImageUrl, { responseType: "blob" });
+                const url = window.URL.createObjectURL(new Blob([data], { type: headers["content-type"] }));
+                setAvatarLargeUrl(url);
+                revokeUrl = url;
+            } catch (err) {
+                toastError(err);
+            }
+        };
+        if (avatarModalOpen) {
+            setAvatarLargeUrl(null);
+            fetchImage();
+        }
+        return () => {
+            if (revokeUrl) window.URL.revokeObjectURL(revokeUrl);
+        };
+    }, [avatarModalOpen, avatarImageUrl]);
+
+
+    const handleContactToggleAcceptAudio = async () => {
         try {
             const contact = await api.put(`/contacts/toggleAcceptAudio/${ticket.contact.id}`);
             setAcceptAudio(contact.data.acceptAudioMessage);
@@ -136,182 +192,209 @@ const ContactDrawer = ({ open, handleDrawerClose, contact, ticket, loading }) =>
         }
     };
 
-	const handleBlockContact = async (contactId) => {
-		try {
-			await api.put(`/contacts/block/${contactId}`, { active: false });
-			toast.success("Contato bloqueado");
-		} catch (err) {
-			toastError(err);
-		}
+    const handleBlockContact = async (contactId) => {
+        try {
+            await api.put(`/contacts/block/${contactId}`, { active: false });
+            toast.success("Contato bloqueado");
+        } catch (err) {
+            toastError(err);
+        }
 
-		setBlockingContact(true);
-	};
+        setBlockingContact(true);
+    };
 
-	const handleUnBlockContact = async (contactId) => {
-		try {
-			await api.put(`/contacts/block/${contactId}`, { active: true });
-			toast.success("Contato desbloqueado");
-		} catch (err) {
-			toastError(err);
-		}
-		setBlockingContact(false);
-	};
+    const handleUnBlockContact = async (contactId) => {
+        try {
+            await api.put(`/contacts/block/${contactId}`, { active: true });
+            toast.success("Contato desbloqueado");
+        } catch (err) {
+            toastError(err);
+        }
+        setBlockingContact(false);
+    };
 
-	if (loading) return null;
+    if (loading) return null;
 
-	return (
-		<>
-			<Drawer
-				className={classes.drawer}
-				variant="persistent"
-				anchor="right"
-				open={open}
-				PaperProps={{ style: { position: "absolute" } }}
-				BackdropProps={{ style: { position: "absolute" } }}
-				ModalProps={{
-					container: document.getElementById("drawer-container"),
-					style: { position: "absolute" },
-				}}
-				classes={{
-					paper: classes.drawerPaper,
-				}}
-			>
-				<div className={classes.header}>
-					<IconButton onClick={handleDrawerClose}>
-						<CloseIcon />
-					</IconButton>
-					<Typography style={{ justifySelf: "center" }}>
-						{i18n.t("contactDrawer.header")}
-					</Typography>
-				</div>
-				<div>
-					{!loading ? (
-						<>
-							<Typography
-								style={{ marginBottom: 8, marginTop: 12 }}
-								variant="subtitle1"
-							>
-								<Switch
-									size="small"
-									checked={acceptAudioMessage}
-									onChange={() => handleContactToggleAcceptAudio()}
-									name="disableBot"
-									color="primary"
-								/>
-								{i18n.t("ticketOptionsMenu.acceptAudioMessage")}								
-							</Typography>
-						</>
-					) : (<br />)}
-				</div>
-				{loading ? (
-					<ContactDrawerSkeleton classes={classes} />
-				) : (
-						<div className={classes.content}>
-							<Paper square variant="outlined" className={classes.contactHeader}>
-								<ContactAvatar contact={contact} style={{ width: "100px", height: "100px" }} />
-							<CardHeader
-								onClick={() => { }}
-								style={{ cursor: "pointer", width: '100%' }}
-								titleTypographyProps={{ noWrap: true }}
-								subheaderTypographyProps={{ noWrap: true }}
-								title={
-									<>
-										<Typography onClick={() => setOpenForm(true)}>
-											{contact.name}
-											<CreateIcon style={{ fontSize: 16, marginLeft: 5 }} />
-										</Typography>
-									</>
-								}
-								subheader={
-									<>
-										<Typography style={{ fontSize: 12 }}>
-											{hideNum && user.profile === "user" ? formatSerializedId(contact.number).slice(0, -6) + "**-**" + contact.number.slice(-2) : formatSerializedId(contact.number)}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											<Link href={`mailto:${contact.email}`}>{contact.email}</Link>
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.cpfCnpj && `CPF/CNPJ: ${contact.cpfCnpj}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.representativeCode && `Cód. Representante: ${contact.representativeCode}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.city && `Cidade: ${contact.city}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.instagram && `Instagram: ${contact.instagram}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.fantasyName && `Nome Fantasia: ${contact.fantasyName}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.situation && `Situação: ${contact.situation}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.foundationDate && `Data de Fundação: ${new Date(contact.foundationDate).toLocaleDateString()}`}
-										</Typography>
-										<Typography style={{ color: "primary", fontSize: 12 }}>
-											{contact.creditLimit && contact.creditLimit !== '' && `Limite de Crédito: R$ ${parseFloat(contact.creditLimit).toFixed(2).replace('.', ',')}`}
-										</Typography>
-									</>
-								}
-							/>
-							<Button
-								variant="outlined"
-								color="primary"
-								onClick={() => setModalOpen(!openForm)}
-								style={{ fontSize: 12 }}
-							>
-								{i18n.t("contactDrawer.buttons.edit")}
-							</Button>
-							<Button
-								variant="outlined"
-								color="secondary"
-								onClick={() => contact.active
-									? handleBlockContact(contact.id)
-									: handleUnBlockContact(contact.id)}
-								disabled={loading}
-							>
-								{!contact.active ? "Desbloquear contato" : "Bloquear contato"}
-							</Button>
-							{(contact.id && openForm) && <ContactForm initialContact={contact} onCancel={() => setOpenForm(false)} />}
-						</Paper>
-						<TagsKanbanContainer ticket={ticket} className={classes.contactTags} />
-						<Paper square variant="outlined" className={classes.contactDetails}>
-							<Typography variant="subtitle1" style={{ marginBottom: 10 }}>
-								{i18n.t("ticketOptionsMenu.appointmentsModal.title")}
-							</Typography>
-							<ContactNotes ticket={ticket} />
-						</Paper>
-						<Paper square variant="outlined" className={classes.contactDetails}>
-							<ContactModal
-								open={modalOpen}
-								onClose={() => setModalOpen(false)}
-								contactId={contact.id}
-							></ContactModal>
-							<Typography variant="subtitle1">
-								{i18n.t("contactDrawer.extraInfo")}
-							</Typography>
-							{contact?.extraInfo?.map(info => (
-								<Paper
-									key={info.id}
-									square
-									variant="outlined"
-									className={classes.contactExtraInfo}
-								>
-									<InputLabel>{info.name}</InputLabel>
-									<Typography component="div" noWrap style={{ paddingTop: 2 }}>
-										<MarkdownWrapper>{info.value}</MarkdownWrapper>
-									</Typography>
-								</Paper>
-							))}
-						</Paper>
-					</div>
-				)}
-			</Drawer>
-		</>
-	);
+    return (
+        <>
+            <Drawer
+                className={classes.drawer}
+                variant="persistent"
+                anchor="right"
+                open={open}
+                PaperProps={{ style: { position: "absolute" } }}
+                BackdropProps={{ style: { position: "absolute" } }}
+                ModalProps={{
+                    container: document.getElementById("drawer-container"),
+                    style: { position: "absolute" },
+                }}
+                classes={{
+                    paper: classes.drawerPaper,
+                }}
+            >
+                <div className={classes.header}>
+                    <IconButton onClick={handleDrawerClose}>
+                        <CloseIcon />
+                    </IconButton>
+                    <Typography style={{ justifySelf: "center" }}>
+                        {i18n.t("contactDrawer.header")}
+                    </Typography>
+                </div>
+                
+                {loading ? (
+                    <ContactDrawerSkeleton classes={classes} />
+                ) : (
+                        <div className={classes.content}>
+                            <Paper square variant="outlined" className={classes.contactHeader}>
+                                <div onClick={() => avatarImageUrl && setAvatarModalOpen(true)} style={{ cursor: avatarImageUrl ? "pointer" : "default" }}>
+                                    <ContactAvatar contact={contact} style={{ width: 270, height: 270, borderRadius: 10 }} />
+                                </div>
+                            <CardHeader
+                                onClick={() => { }}
+                                style={{ cursor: "pointer", width: '100%' }}
+                                disableTypography
+                                classes={{ subheader: classes.cardHeaderSubheader }}
+                                title={
+                                    <Tooltip title={contact?.name || ""}>
+                                        <div className={classes.nameRow} onClick={() => setModalOpen(true)}>
+                                            <Typography className={classes.nameText}>
+                                                {contact?.name || ""}
+                                            </Typography>
+                                            <CreateIcon style={{ fontSize: 16, marginLeft: 5, flex: "0 0 auto" }} />
+                                        </div>
+                                    </Tooltip>
+                                }
+                                subheader={
+                                    <>
+                                        <Typography style={{ fontSize: 12 }}>
+                                            {hideNum && user.profile === "user" ? formatSerializedId(contact.number).slice(0, -6) + "**-**" + contact.number.slice(-2) : formatSerializedId(contact.number)}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            <Link href={`mailto:${contact.email}`}>{contact.email}</Link>
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.cpfCnpj && `CPF/CNPJ: ${contact.cpfCnpj}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.representativeCode && `Cód. Representante: ${contact.representativeCode}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.city && `Cidade: ${contact.city}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.instagram && `Instagram: ${contact.instagram}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.fantasyName && `Nome Fantasia: ${contact.fantasyName}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.situation && `Situação: ${contact.situation}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.foundationDate && `Data de Fundação: ${new Date(contact.foundationDate).toLocaleDateString()}`}
+                                        </Typography>
+                                        <Typography style={{ color: "primary", fontSize: 12 }}>
+                                            {contact.creditLimit && contact.creditLimit !== '' && `Limite de Crédito: R$ ${parseFloat(contact.creditLimit).toFixed(2).replace('.', ',')}`}
+                                        </Typography>
+                                    </>
+                                }
+                            />
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <Tooltip title={i18n.t("contactDrawer.buttons.edit")}>
+                                    <IconButton color="primary" onClick={() => setModalOpen(true)} aria-label="Editar contato">
+                                        <CreateIcon />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={acceptAudioMessage ? "Aceitar Áudio habilitado" : "Aceitar Áudio desabilitado"}>
+                                    <IconButton onClick={() => handleContactToggleAcceptAudio()} aria-label="Alternar áudio">
+                                        {acceptAudioMessage ? (
+                                            <VolumeUpIcon style={{ color: "green" }} />
+                                        ) : (
+                                            <VolumeOffIcon style={{ color: "grey" }} />
+                                        )}
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={!contact.active ? "Desbloquear contato" : "Bloquear contato"}>
+                                    <IconButton
+                                        color="secondary"
+                                        onClick={() => contact.active
+                                            ? handleBlockContact(contact.id)
+                                            : handleUnBlockContact(contact.id)}
+                                        disabled={loading}
+                                        aria-label={!contact.active ? "Desbloquear contato" : "Bloquear contato"}
+                                    >
+                                        {contact.active ? <BlockIcon /> : <LockOpenIcon />}
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+                            {(contact.id && openForm) && <ContactForm initialContact={contact} onCancel={() => setOpenForm(false)} />}
+                        </Paper>
+                        
+                        <TagsKanbanContainer ticket={ticket} className={classes.contactTags} />
+                        <Paper square variant="outlined" className={classes.contactDetails}>
+                            <div
+                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+                                onClick={() => setNotesOpen(prev => !prev)}
+                                aria-expanded={notesOpen}
+                            >
+                                <Typography variant="subtitle1">
+                                    {i18n.t("ticketOptionsMenu.appointmentsModal.title")}
+                                </Typography>
+                                <IconButton size="small" aria-label={notesOpen ? "Recolher" : "Expandir"}>
+                                    {notesOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                </IconButton>
+                            </div>
+                            <Collapse in={notesOpen} timeout="auto" unmountOnExit>
+                                <div style={{ marginTop: 10 }}>
+                                    <ContactNotes ticket={ticket} />
+                                </div>
+                                <div style={{ marginTop: 12 }}>
+                                    <Typography variant="subtitle1">
+                                        {i18n.t("contactDrawer.extraInfo")}
+                                    </Typography>
+                                    {contact?.extraInfo?.map(info => (
+                                        <Paper
+                                            key={info.id}
+                                            square
+                                            variant="outlined"
+                                            className={classes.contactExtraInfo}
+                                        >
+                                            <InputLabel>{info.name}</InputLabel>
+                                            <Typography component="div" noWrap style={{ paddingTop: 2 }}>
+                                                <MarkdownWrapper>{info.value}</MarkdownWrapper>
+                                            </Typography>
+                                        </Paper>
+                                    ))}
+                                </div>
+                            </Collapse>
+                        </Paper>
+                    </div>
+                )}
+            </Drawer>
+            {/* Modal de edição do contato: fora do Collapse para permanecer montado */}
+            <ContactModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                contactId={contact.id}
+            ></ContactModal>
+            {/* Modal para exibir a imagem do avatar ampliada diretamente */}
+            <Dialog open={avatarModalOpen} onClose={() => setAvatarModalOpen(false)} maxWidth="md">
+                <DialogContent style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {avatarImageUrl && (
+                        avatarLargeUrl ? (
+                            <img
+                                src={avatarLargeUrl}
+                                alt="Avatar"
+                                style={{ maxWidth: "90vw", maxHeight: "90vh", borderRadius: 8 }}
+                            />
+                        ) : (
+                            <CircularProgress />
+                        )
+                    )}
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 };
 
 export default ContactDrawer;

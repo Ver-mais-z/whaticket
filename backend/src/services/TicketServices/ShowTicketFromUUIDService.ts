@@ -43,12 +43,36 @@ const ShowTicketUUIDService = async (uuid: string,
       {
         model: Contact,
         as: "contact",
-        attributes: ["id", "name", "number", "email", "profilePicUrl", "acceptAudioMessage", "active", "disableBot", "urlPicture", "companyId"],
-        include: ["extraInfo", "tags",
+        attributes: [
+          "id",
+          "name",
+          "number",
+          "email",
+          "profilePicUrl",
+          "acceptAudioMessage",
+          "active",
+          "disableBot",
+          "urlPicture",
+          "companyId",
+          // Campos adicionais que o frontend precisa exibir
+          "cpfCnpj",
+          "representativeCode",
+          "city",
+          "instagram",
+          "situation",
+          "fantasyName",
+          "foundationDate",
+          "creditLimit",
+          "remoteJid"
+        ],
+        include: [
+          "extraInfo",
+          "tags",
           {
             association: "wallets",
             attributes: ["id", "name"]
-          }]
+          }
+        ]
       },
       {
         model: Queue,
