@@ -119,13 +119,37 @@ export default {
   // Filtro de arquivo com tratamento de erro
   fileFilter: (req: UploadRequest, file, cb) => {
     const allowedMimes = [
+      // Imagens
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/gif',
+      'image/webp',
+
+      // Documentos
       'application/pdf',
       'text/plain',
-      'image/webp'
+
+      // Áudio (permitir formatos comuns usados por navegadores e celulares)
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/ogg',
+      'audio/opus',
+      'audio/wav',
+      'audio/webm',
+      'audio/aac',
+      'audio/mp4',
+      'audio/m4a',
+      'audio/x-m4a',
+      'audio/3gpp',
+      'audio/3gpp2',
+      'audio/amr',
+
+      // Vídeo comum (evita erro ao enviar vídeo pelo mesmo endpoint)
+      'video/mp4',
+      'video/3gpp',
+      'video/webm',
+      'video/quicktime'
     ];
 
     if (allowedMimes.includes(file.mimetype)) {

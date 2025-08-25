@@ -110,7 +110,16 @@ const ListMessagesService = async ({
       {
         model: Contact,
         as: "contact",
-        attributes: ["id", "name"],
+        attributes: [
+          "id",
+          "name",
+          // needed for avatar rendering on frontend
+          "profilePicUrl",
+          "urlPicture",
+          // required so Contact.urlPicture getter can build full URL with cache buster
+          "updatedAt",
+          "companyId"
+        ],
       },
       {
         model: Message,
@@ -120,7 +129,16 @@ const ListMessagesService = async ({
           {
             model: Contact,
             as: "contact",
-            attributes: ["id", "name"],
+            attributes: [
+              "id",
+              "name",
+              // needed for avatar rendering on frontend (quoted messages)
+              "profilePicUrl",
+              "urlPicture",
+              // required so Contact.urlPicture getter can build full URL with cache buster
+              "updatedAt",
+              "companyId"
+            ],
           }
         ],
         required: false
@@ -128,7 +146,7 @@ const ListMessagesService = async ({
       {
         model: Ticket,
         required: true,
-        attributes: ["id", "whatsappId", "queueId"],
+        attributes: ["id", "whatsappId", "queueId", "createdAt"],
         include: [
           {
             model: Queue,

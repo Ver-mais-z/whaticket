@@ -185,6 +185,21 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     alignContent: "middle",
   },
+  waveform: {
+    display: "flex",
+    alignItems: "flex-end",
+    height: 24,
+    width: 40,
+    marginLeft: 8,
+    gap: 3,
+  },
+  waveformBar: {
+    width: 3,
+    backgroundColor: green[500],
+    opacity: 0.85,
+    borderRadius: 2,
+    transition: "height 60ms linear",
+  },
   cancelAudioIcon: {
     color: "red",
   },
@@ -376,6 +391,80 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
 
   const isMobile = useMediaQuery('(max-width: 767px)'); // Ajuste o valor conforme necessário
   const [placeholderText, setPlaceHolderText] = useState("");
+
+  // Medidor de áudio (waveform simples)
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const [waveBars, setWaveBars] = useState([6, 10, 8, 6]);
+
+  const startAudioMeter = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.85;
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.fftSize;
+      const dataArray = new Uint8Array(bufferLength);
+
+      audioContextRef.current = audioCtx;
+      analyserRef.current = analyser;
+      dataArrayRef.current = dataArray;
+      mediaStreamRef.current = stream;
+
+      const draw = () => {
+        if (!analyserRef.current || !dataArrayRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
+        // Calcula nível médio de amplitude (RMS aproximado)
+        let sum = 0;
+        for (let i = 0; i < dataArrayRef.current.length; i++) {
+          const v = (dataArrayRef.current[i] - 128) / 128; // -1..1
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / dataArrayRef.current.length); // 0..1
+        const level = Math.min(1, rms * 3.5); // ganho para visual
+
+        // Gera 4 barras com leve variação
+        const bars = 4;
+        const maxH = 24;
+        const minH = 3;
+        const arr = Array.from({ length: bars }, (_, i) => {
+          const jitter = 0.85 + Math.random() * 0.3;
+          return Math.max(minH, Math.min(maxH, Math.round(level * maxH * jitter * (1 + (i % 3) * 0.05))));
+        });
+        setWaveBars(arr);
+        animationFrameRef.current = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch (e) {
+      // silencioso: medidor é apenas visual
+    }
+  };
+
+  const stopAudioMeter = (stopTracks = false) => {
+    try {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (stopTracks && mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(t => t.stop());
+        mediaStreamRef.current = null;
+      }
+      analyserRef.current = null;
+      dataArrayRef.current = null;
+      // Reset visual
+      setWaveBars([6, 10, 8, 6]);
+    } catch (_) { }
+  };
 
   // Determine o texto do placeholder com base no ticketStatus
   useEffect(() => {
@@ -692,7 +781,8 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   const handleStartRecording = async () => {
     setLoading(true);
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startAudioMeter(stream);
       await Mp3Recorder.start();
       setRecording(true);
       setLoading(false);
@@ -803,6 +893,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
 
     setLoading(true);
     try {
+      stopAudioMeter(true);
       const [, blob] = await Mp3Recorder.stop().getMp3();
       if (blob.size < 10000) {
         setLoading(false);
@@ -834,6 +925,7 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
   };
   const handleCancelAudio = async () => {
     try {
+      stopAudioMeter(true);
       await Mp3Recorder.stop().getMp3();
       setRecording(false);
     } catch (err) {
@@ -1338,6 +1430,13 @@ const MessageInput = ({ ticketId, ticketStatus, droppedFiles, contactId, ticketC
                     ) : (
                       <RecordingTimer />
                     )}
+
+                    {/* Waveform live */}
+                    <div className={classes.waveform} aria-label="audio-waveform">
+                      {waveBars.map((h, idx) => (
+                        <div key={idx} className={classes.waveformBar} style={{ height: `${h}px` }} />
+                      ))}
+                    </div>
 
                     <IconButton
                       aria-label="sendRecordedAudio"

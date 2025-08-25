@@ -2,6 +2,7 @@ import React, { useState, useContext } from "react";
 import PropTypes from "prop-types";
 
 import AddCircleOutlineIcon from '@material-ui/icons/Add';
+import { GetApp } from "@material-ui/icons";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -148,6 +149,39 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 		handleClose();
 	};
 
+	// Util simples para extrair o nome do arquivo da URL
+	const getFileNameFromUrl = (url = "") => {
+		try {
+			const u = new URL(url, window.location.href);
+			return u.pathname.split("/").pop() || "";
+		} catch (e) {
+			return (url || "").split("/").pop() || "";
+		}
+	};
+
+	const handleDownloadMedia = async () => {
+		try {
+			const url = message?.mediaUrl;
+			if (!url) return;
+			const response = await fetch(url);
+			if (!response.ok) throw new Error("download-failed");
+			const blob = await response.blob();
+			const blobUrl = window.URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = blobUrl;
+			a.download = getFileNameFromUrl(url) || "download";
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			window.URL.revokeObjectURL(blobUrl);
+		} catch (e) {
+			// opcional: notificar erro
+			// toast.error(i18n.t("errors.downloadFailed"));
+		} finally {
+			handleClose();
+		}
+	};
+
 	return (
 		<>
 			<ForwardModal
@@ -192,6 +226,12 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
 				<MenuItem onClick={handleSetShowSelectCheckbox}>
 					{i18n.t("messageOptionsMenu.forward")}
 				</MenuItem>
+				{["audio", "image", "video"].includes(message?.mediaType) && message?.mediaUrl && (
+          <MenuItem onClick={handleDownloadMedia}>
+            <GetApp fontSize="small" style={{ marginRight: 8 }} />
+            Download
+          </MenuItem>
+        )}
 				{message.fromMe && (
 					<MenuItem onClick={handleOpenEditMessageModal}>
 						{i18n.t("messageOptionsMenu.edit")}
