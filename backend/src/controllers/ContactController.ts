@@ -244,13 +244,28 @@ export const getContact = async (
     situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable(),
-    email: Yup.string().email().nullable()
+    email: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .email()
+      .nullable()
   });
 
   try {
     await schema.validate(newContact);
   } catch (err: any) {
     throw new AppError(err.message);
+  }
+
+  // Normaliza email: evita null no model (que não permite) e remove espaços
+  if (newContact.hasOwnProperty("email")) {
+    if (newContact.email === null || newContact.email === undefined) {
+      newContact.email = "";
+    } else if (typeof newContact.email === "string") {
+      newContact.email = newContact.email.trim();
+    }
   }
 
 
@@ -308,7 +323,13 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     number: Yup.string()
       .nullable()
       .matches(/^\d+$/, "Invalid number format. Only numbers is allowed."),
-    email: Yup.string().email().nullable(),
+    email: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .email()
+      .nullable(),
     cpfCnpj: Yup.string()
       .nullable()
       .test('cpf-cnpj', 'CPF/CNPJ inválido', (value) => {
@@ -329,6 +350,15 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     await schema.validate(contactData);
   } catch (err: any) {
     throw new AppError(err.message);
+  }
+
+  // Normaliza email: evita null no model (que não permite) e remove espaços
+  if (contactData.hasOwnProperty("email")) {
+    if (contactData.email === null || contactData.email === undefined) {
+      contactData.email = "";
+    } else if (typeof contactData.email === "string") {
+      contactData.email = contactData.email.trim();
+    }
   }
 
   const oldContact = await ShowContactService(contactId, companyId);
