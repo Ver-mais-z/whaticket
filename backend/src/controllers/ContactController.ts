@@ -52,6 +52,7 @@ type IndexQuery = {
   pageNumber: string;
   contactTag: string;
   isGroup?: string;
+  limit?: string;
 };
 
 type IndexGetContactQuery = {
@@ -155,7 +156,7 @@ export const importXls = async (req: Request, res: Response): Promise<Response> 
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { searchParam, pageNumber, contactTag: tagIdsStringified, isGroup } = req.query as IndexQuery;
+  const { searchParam, pageNumber, contactTag: tagIdsStringified, isGroup, limit } = req.query as IndexQuery;
   // <<-- ALTERAÇÃO 1: Adicionado 'profile' para obter o perfil do usuário
   const { id: userId, companyId, profile } = req.user;
 
@@ -174,7 +175,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     tagsIds,
     isGroup,
     userId: Number(userId),
-    profile // <<-- ALTERAÇÃO 2: 'profile' é enviado para o serviço
+    profile, // <<-- ALTERAÇÃO 2: 'profile' é enviado para o serviço
+    limit
   });
 
   return res.json({ contacts, count, hasMore });

@@ -18,6 +18,7 @@ interface Request {
   isGroup?: string;
   userId?: number;
   profile?: string;
+  limit?: string;
 }
 
 interface Response {
@@ -33,7 +34,8 @@ const ListContactsService = async ({
                                      tagsIds,
                                      isGroup,
                                      userId,
-                                     profile
+                                     profile,
+                                     limit
                                    }: Request): Promise<Response> => {
   let whereCondition: Filterable["where"] = {};
 
@@ -127,8 +129,8 @@ const ListContactsService = async ({
     }
   }
 
-  const limit = 100;
-  const offset = limit * (+pageNumber - 1);
+  const pageLimit = Number(limit) || 100;
+  const offset = pageLimit * (+pageNumber - 1);
 
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
@@ -158,6 +160,8 @@ const ListContactsService = async ({
         attributes: ["id", "name", "color"]
       },
     ],
+    distinct: true,
+    limit: pageLimit,
     offset,
     order: [["name", "ASC"]]
   });
