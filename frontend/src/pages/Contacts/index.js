@@ -4,6 +4,7 @@ import React, {
     useReducer,
     useContext,
     useRef,
+    useMemo,
 } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
@@ -148,6 +149,23 @@ const Contacts = () => {
     // Placeholder for total contacts, should be fetched from API
     const [totalContacts, setTotalContacts] = useState(3000); 
     const [contactsPerPage, setContactsPerPage] = useState(25);
+    // Ordenação
+    const [sortField, setSortField] = useState("name");
+    const [sortDirection, setSortDirection] = useState("asc"); // 'asc' | 'desc'
+
+    // Carrega preferência de ordenação do usuário
+    useEffect(() => {
+        const key = `contactsSort:${user?.id || "anon"}`;
+        try {
+            const saved = JSON.parse(localStorage.getItem(key));
+            if (saved && saved.field) {
+                setSortField(saved.field);
+                setSortDirection(saved.direction === "desc" ? "desc" : "asc");
+            }
+        } catch (e) {
+            // ignora
+        }
+    }, [user?.id]);
 
     useEffect(() => {
         async function fetchData() {
@@ -188,7 +206,16 @@ const Contacts = () => {
                             const fetchContacts = async () => {
                                 try {
                                     const { data } = await api.get("/contacts/", {
-                                        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags), limit: contactsPerPage, isGroup: "false" },
+                                        params: { 
+                                            searchParam, 
+                                            pageNumber, 
+                                            contactTag: JSON.stringify(selectedTags), 
+                                            limit: contactsPerPage, 
+                                            isGroup: "false",
+                                            // 'tags' não é suportado no backend; usa 'name' como fallback
+                                            orderBy: sortField === 'tags' ? 'name' : sortField,
+                                            order: sortDirection,
+                                        },
                                     });
                                     // Substitui a lista pelo resultado da página atual
                                     dispatch({ type: "SET_CONTACTS", payload: data.contacts });
@@ -209,7 +236,7 @@ const Contacts = () => {
                             fetchContacts();
                         }, 500);
                         return () => clearTimeout(delayDebounceFn);
-                    }, [searchParam, pageNumber, selectedTags, contactsPerPage]);
+                    }, [searchParam, pageNumber, selectedTags, contactsPerPage, sortField, sortDirection]);
 
     // Hook para atualização em tempo real de avatares
     useContactUpdates((updatedContact) => {
@@ -439,6 +466,68 @@ const Contacts = () => {
 
     // Calcula o número total de páginas
     const totalPages = totalContacts === 0 ? 1 : Math.ceil(totalContacts / contactsPerPage);
+
+    // Persistência da ordenação
+    const persistSort = (field, direction) => {
+        const key = `contactsSort:${user?.id || "anon"}`;
+        try {
+            localStorage.setItem(key, JSON.stringify({ field, direction }));
+        } catch (e) {
+            // ignora
+        }
+    };
+
+    // Handler de clique no cabeçalho para ordenar
+    const handleSort = (field) => {
+        setSortField((prevField) => {
+            const nextField = field;
+            setSortDirection((prevDir) => {
+                const nextDir = prevField === field ? (prevDir === "asc" ? "desc" : "asc") : "asc";
+                persistSort(nextField, nextDir);
+                setPageNumber(1);
+                return nextDir;
+            });
+            return nextField;
+        });
+    };
+
+    // Contatos ordenados (aplicado por página)
+    const sortedContacts = useMemo(() => {
+        const arr = contacts.filter(c => !c.isGroup);
+        const normalize = (v) => {
+            if (v === null || v === undefined) return "";
+            if (typeof v === "string") return v.toLowerCase();
+            return v;
+        };
+        const getFieldValue = (c) => {
+            switch (sortField) {
+                case "name":
+                    return c.name || "";
+                case "number":
+                    return c.number || "";
+                case "email":
+                    return c.email || "";
+                case "city":
+                    return c.city || "";
+                case "tags":
+                    return Array.isArray(c.tags) ? c.tags.length : 0;
+                case "status":
+                    return c.situation || (c.active ? "Ativo" : "Inativo");
+                default:
+                    return c.name || "";
+            }
+        };
+        const cmp = (a, b) => {
+            const va = normalize(getFieldValue(a));
+            const vb = normalize(getFieldValue(b));
+            if (typeof va === "number" && typeof vb === "number") {
+                return va - vb;
+            }
+            return String(va).localeCompare(String(vb), "pt-BR", { sensitivity: "base" });
+        };
+        const sorted = [...arr].sort(cmp);
+        return sortDirection === "desc" ? sorted.reverse() : sorted;
+    }, [contacts, sortField, sortDirection]);
 
     // Função para renderizar os números de página com limite
 
@@ -734,17 +823,47 @@ const Contacts = () => {
                                             onChange={handleSelectAllContacts}
                                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                     </th>
-                                    <th scope="col" className="pl-0 pr-3 py-3 w-[240px] lg:w-[300px]">Nome</th>
-                                    <th scope="col" className="pl-3 pr-3 py-3 w-[140px]">WhatsApp</th>
-                                    <th scope="col" className="hidden lg:table-cell pl-1 pr-1 py-3 w-[120px]">Email</th>
-                                    <th scope="col" className="pl-3 pr-3 py-3 w-[120px]">Cidade/UF</th>
-                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[100px]">Tags</th>
-                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[110px]">Status</th>
+                                    <th scope="col" className="pl-0 pr-3 py-3 w-[240px] lg:w-[300px]">
+                                        <button onClick={() => handleSort('name')} className="flex items-center gap-1 select-none">
+                                            Nome
+                                            <span className="text-[15px] opacity-70">{sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 w-[140px]">
+                                        <button onClick={() => handleSort('number')} className="flex items-center gap-1 select-none">
+                                            WhatsApp
+                                            <span className="text-[15px] opacity-70">{sortField === 'number' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="hidden lg:table-cell pl-1 pr-1 py-3 w-[120px]">
+                                        <button onClick={() => handleSort('email')} className="flex items-center gap-1 select-none">
+                                            Email
+                                            <span className="text-[15px] opacity-70">{sortField === 'email' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 w-[120px]">
+                                        <button onClick={() => handleSort('city')} className="flex items-center gap-1 select-none">
+                                            Cidade/UF
+                                            <span className="text-[15px] opacity-70">{sortField === 'city' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[50px]">
+                                        <button onClick={() => handleSort('tags')} className="flex items-center justify-center gap-1 w-full select-none">
+                                            Tags
+                                            <span className="text-[15px] opacity-70">{sortField === 'tags' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[110px]">
+                                        <button onClick={() => handleSort('status')} className="flex items-center justify-center gap-1 w-full select-none">
+                                            Status
+                                            <span className="text-[15px] opacity-70">{sortField === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
                                     <th scope="col" className="pl-3 pr-3 py-3 text-center w-[120px]">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {contacts.filter(contact => !contact.isGroup).map((contact) => (
+                                {sortedContacts.map((contact) => (
                                     <tr key={contact.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                         <td className="w-[48px] p-4">
                                             <input type="checkbox"
@@ -780,8 +899,8 @@ const Contacts = () => {
                                                 <span className="truncate">{contact.city}</span>
                                             </Tooltip>
                                         </td>
-                                        <td className=" pl-3 pr-3 py-3 w-[100px]">
-                                            <div className="flex items-center gap-1">
+                                        <td className="text-center pl-1 pr-1 py-1 max-w-[50px]">
+                                            <div className="flex justify-center  gap-1">
                                                 {contact.tags && contact.tags.slice(0, 4).map((tag) => (
                                                     <Tooltip {...CustomTooltipProps} title={tag.name} key={tag.id}>
                                                         <span
@@ -913,7 +1032,7 @@ const Contacts = () => {
 
                 {/* Lista de Contatos (Mobile) */}
                 <div className="min-[1200px]:hidden flex flex-col gap-1.5 mt-3 w-full max-w-md mx-auto">
-                    {contacts.filter(contact => !contact.isGroup).map((contact) => (
+                    {sortedContacts.map((contact) => (
                         <div key={contact.id} className="w-full bg-white dark:bg-gray-800 shadow rounded-lg p-3 flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
                                 <ContactAvatar 
