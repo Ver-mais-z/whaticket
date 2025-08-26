@@ -4,6 +4,7 @@ import React, {
     useReducer,
     useContext,
     useRef,
+    useMemo,
 } from "react";
 import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
@@ -21,12 +22,12 @@ import {
     ChevronsRight,
     FileUp,
     FileDown,
-    Plus,
+    UserPlus,
     Filter,
     X,
     Phone,
 } from "lucide-react";
-import { Facebook, Instagram, WhatsApp, ArrowDropDown, Backup, ContactPhone } from "@material-ui/icons";
+import { Facebook, Instagram, WhatsApp, ImportExport, Backup, ContactPhone } from "@material-ui/icons";
 import { Tooltip, Menu, MenuItem } from "@material-ui/core";
 import api from "../../services/api";
 import ContactAvatar from "../../components/ContactAvatar";
@@ -59,6 +60,10 @@ const CustomTooltipProps = {
 };
 
 const reducer = (state, action) => {
+    if (action.type === "SET_CONTACTS") {
+        // Substitui completamente a lista de contatos (paginação por página)
+        return [...action.payload];
+    }
     if (action.type === "LOAD_CONTACTS") {
         const contacts = action.payload;
         const newContacts = [];
@@ -144,6 +149,23 @@ const Contacts = () => {
     // Placeholder for total contacts, should be fetched from API
     const [totalContacts, setTotalContacts] = useState(3000); 
     const [contactsPerPage, setContactsPerPage] = useState(25);
+    // Ordenação
+    const [sortField, setSortField] = useState("name");
+    const [sortDirection, setSortDirection] = useState("asc"); // 'asc' | 'desc'
+
+    // Carrega preferência de ordenação do usuário
+    useEffect(() => {
+        const key = `contactsSort:${user?.id || "anon"}`;
+        try {
+            const saved = JSON.parse(localStorage.getItem(key));
+            if (saved && saved.field) {
+                setSortField(saved.field);
+                setSortDirection(saved.direction === "desc" ? "desc" : "asc");
+            }
+        } catch (e) {
+            // ignora
+        }
+    }, [user?.id]);
 
     useEffect(() => {
         async function fetchData() {
@@ -184,11 +206,21 @@ const Contacts = () => {
                             const fetchContacts = async () => {
                                 try {
                                     const { data } = await api.get("/contacts/", {
-                                        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) },
+                                        params: { 
+                                            searchParam, 
+                                            pageNumber, 
+                                            contactTag: JSON.stringify(selectedTags), 
+                                            limit: contactsPerPage, 
+                                            isGroup: "false",
+                                            // 'tags' não é suportado no backend; usa 'name' como fallback
+                                            orderBy: sortField === 'tags' ? 'name' : sortField,
+                                            order: sortDirection,
+                                        },
                                     });
-                                    dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
+                                    // Substitui a lista pelo resultado da página atual
+                                    dispatch({ type: "SET_CONTACTS", payload: data.contacts });
                                     setHasMore(data.hasMore);
-                                    setTotalContacts(data.total || data.contacts.length); // Atualiza totalContacts dinamicamente
+                                    setTotalContacts(typeof data.count === 'number' ? data.count : (data.total || data.contacts.length));
                                     setLoading(false);
 
                                     // Atualizar o estado do "Selecionar Tudo" baseado nos contatos carregados e selecionados
@@ -204,7 +236,7 @@ const Contacts = () => {
                             fetchContacts();
                         }, 500);
                         return () => clearTimeout(delayDebounceFn);
-                    }, [searchParam, pageNumber, selectedTags]);
+                    }, [searchParam, pageNumber, selectedTags, contactsPerPage, sortField, sortDirection]);
 
     // Hook para atualização em tempo real de avatares
     useContactUpdates((updatedContact) => {
@@ -404,20 +436,7 @@ const Contacts = () => {
         setPageNumber((prevState) => prevState + 1);
     };
 
-    // Scroll da janela (barra do navegador) para carregar mais
-    useEffect(() => {
-        const onScroll = () => {
-            if (!hasMore || loading) return;
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const winHeight = window.innerHeight;
-            const docHeight = document.documentElement.scrollHeight;
-            if (docHeight - (scrollTop + winHeight) < 100) {
-                loadMore();
-            }
-        };
-        window.addEventListener('scroll', onScroll, { passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
-    }, [hasMore, loading]);
+    // Removido infinite scroll para manter paginação fixa por página
 
     const formatPhoneNumber = (number) => {
         if (!number) return "";
@@ -447,6 +466,68 @@ const Contacts = () => {
 
     // Calcula o número total de páginas
     const totalPages = totalContacts === 0 ? 1 : Math.ceil(totalContacts / contactsPerPage);
+
+    // Persistência da ordenação
+    const persistSort = (field, direction) => {
+        const key = `contactsSort:${user?.id || "anon"}`;
+        try {
+            localStorage.setItem(key, JSON.stringify({ field, direction }));
+        } catch (e) {
+            // ignora
+        }
+    };
+
+    // Handler de clique no cabeçalho para ordenar
+    const handleSort = (field) => {
+        setSortField((prevField) => {
+            const nextField = field;
+            setSortDirection((prevDir) => {
+                const nextDir = prevField === field ? (prevDir === "asc" ? "desc" : "asc") : "asc";
+                persistSort(nextField, nextDir);
+                setPageNumber(1);
+                return nextDir;
+            });
+            return nextField;
+        });
+    };
+
+    // Contatos ordenados (aplicado por página)
+    const sortedContacts = useMemo(() => {
+        const arr = contacts.filter(c => !c.isGroup);
+        const normalize = (v) => {
+            if (v === null || v === undefined) return "";
+            if (typeof v === "string") return v.toLowerCase();
+            return v;
+        };
+        const getFieldValue = (c) => {
+            switch (sortField) {
+                case "name":
+                    return c.name || "";
+                case "number":
+                    return c.number || "";
+                case "email":
+                    return c.email || "";
+                case "city":
+                    return c.city || "";
+                case "tags":
+                    return Array.isArray(c.tags) ? c.tags.length : 0;
+                case "status":
+                    return c.situation || (c.active ? "Ativo" : "Inativo");
+                default:
+                    return c.name || "";
+            }
+        };
+        const cmp = (a, b) => {
+            const va = normalize(getFieldValue(a));
+            const vb = normalize(getFieldValue(b));
+            if (typeof va === "number" && typeof vb === "number") {
+                return va - vb;
+            }
+            return String(va).localeCompare(String(vb), "pt-BR", { sensitivity: "base" });
+        };
+        const sorted = [...arr].sort(cmp);
+        return sortDirection === "desc" ? sorted.reverse() : sorted;
+    }, [contacts, sortField, sortDirection]);
 
     // Função para renderizar os números de página com limite
 
@@ -573,8 +654,85 @@ const Contacts = () => {
                     </h1>
                 </header>
 
-                {/* Barra de Ações e Filtros */}
-                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 md:flex-nowrap">
+                {/* Barra de Ações e Filtros - Mobile (2 linhas) */}
+                <div className="min-[1200px]:hidden flex flex-col gap-2 w-full max-w-md mx-auto">
+                    {/* Linha 1: Filtros + Botões */}
+                    <div className="w-full flex items-center gap-2 flex-wrap">
+                        <div className="relative flex-1 min-w-0">
+                            <TagsFilter onFiltered={handleSelectedTags} />
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            <PopupState variant="popover" popupId="contacts-import-export-menu-mobile">
+                                {(popupState) => (
+                                    <>
+                                        <Tooltip {...CustomTooltipProps} title="Importar/Exportar">
+                                            <button
+                                                className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                aria-label="Importar/Exportar"
+                                                {...bindTrigger(popupState)}
+                                            >
+                                                <ImportExport fontSize="small" />
+                                            </button>
+                                        </Tooltip>
+                                        <Menu {...bindMenu(popupState)}>
+                                            <MenuItem onClick={() => { setConfirmOpen(true); setImportContacts(true); popupState.close(); }}>
+                                                <ContactPhone fontSize="small" color="primary" style={{ marginRight: 10 }} />
+                                                {i18n.t("contacts.menu.importYourPhone")}
+                                            </MenuItem>
+                                            <MenuItem onClick={() => { setImportContactModalOpen(true) }}>
+                                                <Backup fontSize="small" color="primary" style={{ marginRight: 10 }} />
+                                                {i18n.t("contacts.menu.importToExcel")}
+                                            </MenuItem>
+                                        </Menu>
+                                    </>
+                                )}
+                            </PopupState>
+                            <Can
+                                role={user.profile}
+                                perform="contacts-page:deleteContact"
+                                yes={() => (
+                                    selectedContactIds.length > 0 ? (
+                                        <Tooltip {...CustomTooltipProps} title={`Deletar (${selectedContactIds.length})`}>
+                                            <button
+                                                onClick={() => setConfirmDeleteManyOpen(true)}
+                                                disabled={loading}
+                                                className="w-10 h-10 flex items-center justify-center text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                                aria-label={`Deletar ${selectedContactIds.length} contato(s)`}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </Tooltip>
+                                    ) : null
+                                )}
+                                no={() => null}
+                            />
+                            <Tooltip {...CustomTooltipProps} title="Novo Contato">
+                                <button
+                                    onClick={handleOpenContactModal}
+                                    className="w-10 h-10 flex items-center justify-center text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    aria-label="Novo Contato"
+                                >
+                                    <UserPlus className="w-6 h-6" />
+                                </button>
+                            </Tooltip>
+                        </div>
+                    </div>
+
+                    {/* Linha 2: Busca sozinha */}
+                    <div className="relative w-full">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nome, telefone, cidade, cnpj/cpf, cod. representante ou email..."
+                            value={searchParam}
+                            onChange={handleSearch}
+                            className="w-full h-10 pl-10 pr-4 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    </div>
+                </div>
+
+                {/* Barra de Ações e Filtros - Desktop (1 linha) */}
+                <div className="hidden min-[1200px]:flex items-center gap-3 flex-nowrap">
                     {/* Filtros e Busca (Esquerda) */}
                     <div className="w-full flex items-center gap-2 flex-1 min-w-0 justify-start">
                         <div className="relative">
@@ -582,7 +740,7 @@ const Contacts = () => {
                         </div>
 
                         {/* Busca com largura limitada */}
-                        <div className="relative flex-1 min-w-[260px] max-w-[620px]">
+                        <div className="relative flex-1 ">
                             <input
                                 type="text"
                                 placeholder="Buscar por nome, telefone, cidade, cnpj/cpf, cod. representante ou email..."
@@ -595,17 +753,19 @@ const Contacts = () => {
                     </div>
 
                     {/* Ações Principais (Direita) */}
-                    <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 flex-none whitespace-nowrap items-center">
-                        <PopupState variant="popover" popupId="demo-popup-menu">
+                    <div className="w-full md:w-auto flex flex-row gap-2 flex-none whitespace-nowrap items-center">
+                        <PopupState variant="popover" popupId="contacts-import-export-menu">
                             {(popupState) => (
                                 <>
-                                    <button
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
-                                        {...bindTrigger(popupState)}
-                                    >
-                                        Importar/Exportar
-                                        <ArrowDropDown />
-                                    </button>
+                                    <Tooltip {...CustomTooltipProps} title="Importar/Exportar">
+                                        <button
+                                            className="w-10 h-10 flex items-center justify-center text-gray-700 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            aria-label="Importar/Exportar"
+                                            {...bindTrigger(popupState)}
+                                        >
+                                            <ImportExport fontSize="small" />
+                                        </button>
+                                    </Tooltip>
                                     <Menu {...bindMenu(popupState)}>
                                         <MenuItem onClick={() => { setConfirmOpen(true); setImportContacts(true); popupState.close(); }}>
                                             <ContactPhone fontSize="small" color="primary" style={{ marginRight: 10 }} />
@@ -620,56 +780,98 @@ const Contacts = () => {
                             )}
                         </PopupState>
 
-                        <button
-                            onClick={() => setConfirmDeleteManyOpen(true)}
-                            disabled={selectedContactIds.length === 0 || loading}
-                            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-red-300 dark:disabled:bg-red-800 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap"
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Deletar ({selectedContactIds.length})
-                        </button>
+                        <Can
+                            role={user.profile}
+                            perform="contacts-page:deleteContact"
+                            yes={() => (
+                                selectedContactIds.length > 0 ? (
+                                    <Tooltip {...CustomTooltipProps} title={`Deletar (${selectedContactIds.length})`}>
+                                        <button
+                                            onClick={() => setConfirmDeleteManyOpen(true)}
+                                            disabled={loading}
+                                            className="w-10 h-10 flex items-center justify-center text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                            aria-label={`Deletar ${selectedContactIds.length} contato(s)`}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </Tooltip>
+                                ) : null
+                            )}
+                            no={() => null}
+                        />
 
-                        <button
-                            onClick={handleOpenContactModal}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center whitespace-nowrap"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Novo Contato
-                        </button>
+                        <Tooltip {...CustomTooltipProps} title="Novo Contato">
+                            <button
+                                onClick={handleOpenContactModal}
+                                className="w-10 h-10 flex items-center justify-center text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                aria-label="Novo Contato"
+                            >
+                                <UserPlus className="w-6 h-6" />
+                            </button>
+                        </Tooltip>
                     </div>
                 </div>
-
                 {/* Tabela de Contatos (Desktop) */}
-                <div className="hidden md:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+                <div className="hidden min-[1200px]:block bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
                     <div className="overflow-x-hidden">
-                        <table className="w-full table-auto text-sm text-left text-gray-500 dark:text-gray-400">
+                        <table className="w-full table-fixed text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 sticky top-0 z-10">
                                 <tr>
-                                    <th scope="col" className="p-4">
+                                    <th scope="col" className="w-[48px] p-4">
                                         <input type="checkbox"
                                             checked={isSelectAllChecked}
                                             onChange={handleSelectAllContacts}
                                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                     </th>
-                                    <th scope="col" className="px-6 py-3 w-[360px]">Nome</th>
-                                    <th scope="col" className="px-2 py-3">WhatsApp</th>
-                                    <th scope="col" className="px-6 py-3">Email</th>
-                                    <th scope="col" className="px-6 py-3">Cidade/UF</th>
-                                    <th scope="col" className="px-6 py-3">Tags</th>
-                                    <th scope="col" className="px-2 py-3 text-center">Status</th>
-                                    <th scope="col" className="px-2 py-3 text-center">Ações</th>
+                                    <th scope="col" className="pl-0 pr-3 py-3 w-[240px] lg:w-[300px]">
+                                        <button onClick={() => handleSort('name')} className="flex items-center gap-1 select-none">
+                                            Nome
+                                            <span className="text-[15px] opacity-70">{sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 w-[140px]">
+                                        <button onClick={() => handleSort('number')} className="flex items-center gap-1 select-none">
+                                            WhatsApp
+                                            <span className="text-[15px] opacity-70">{sortField === 'number' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="hidden lg:table-cell pl-1 pr-1 py-3 w-[120px]">
+                                        <button onClick={() => handleSort('email')} className="flex items-center gap-1 select-none">
+                                            Email
+                                            <span className="text-[15px] opacity-70">{sortField === 'email' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 w-[120px]">
+                                        <button onClick={() => handleSort('city')} className="flex items-center gap-1 select-none">
+                                            Cidade/UF
+                                            <span className="text-[15px] opacity-70">{sortField === 'city' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[50px]">
+                                        <button onClick={() => handleSort('tags')} className="flex items-center justify-center gap-1 w-full select-none">
+                                            Tags
+                                            <span className="text-[15px] opacity-70">{sortField === 'tags' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[110px]">
+                                        <button onClick={() => handleSort('status')} className="flex items-center justify-center gap-1 w-full select-none">
+                                            Status
+                                            <span className="text-[15px] opacity-70">{sortField === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}</span>
+                                        </button>
+                                    </th>
+                                    <th scope="col" className="pl-3 pr-3 py-3 text-center w-[120px]">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {contacts.filter(contact => !contact.isGroup).map((contact) => (
+                                {sortedContacts.map((contact) => (
                                     <tr key={contact.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                        <td className="w-4 p-4">
+                                        <td className="w-[48px] p-4">
                                             <input type="checkbox"
                                                 checked={selectedContactIds.includes(contact.id)}
                                                 onChange={handleToggleSelectContact(contact.id)}
                                                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                         </td>
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 w-[360px] max-w-[360px] overflow-hidden text-ellipsis">
+                                        <td className="pl-0 pr-3 py-3 font-medium text-gray-900 whitespace-nowrap dark:text-white flex items-center gap-3 w-[240px] lg:w-[300px] max-w-[240px] lg:max-w-[300px] overflow-hidden text-ellipsis">
                                             <Tooltip {...CustomTooltipProps} title={contact.name}>
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 overflow-hidden">
                                                     <ContactAvatar 
@@ -684,40 +886,40 @@ const Contacts = () => {
                                                 </span>
                                             </Tooltip>
                                         </td>
-                                        <td className="px-2 py-4 whitespace-nowrap">
+                                        <td className="pl-3 pr-3 py-3 whitespace-nowrap w-[140px]">
                                             {formatPhoneNumber(contact.number)}
                                         </td>
-<td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                        <td className="hidden lg:table-cell pl-1 pr-1 py-3 w-[120px] overflow-hidden text-ellipsis whitespace-nowrap">
                                             <Tooltip {...CustomTooltipProps} title={contact.email}>
-                                                <span className="truncate">{contact.email}</span>
+                                                <span className="truncate block max-w-full text-xs">{contact.email}</span>
                                             </Tooltip>
                                         </td>
-                                        <td className="px-6 py-4 max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                        <td className="pl-3 pr-3 py-3 max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap">
                                             <Tooltip {...CustomTooltipProps} title={contact.city}>
                                                 <span className="truncate">{contact.city}</span>
                                             </Tooltip>
                                         </td>
-                                        <td className="px-2 py-4">
-                                            <div className="flex items-center gap-1">
-                                                {contact.tags && contact.tags.slice(0, 6).map((tag) => (
+                                        <td className="text-center pl-1 pr-1 py-1 max-w-[50px]">
+                                            <div className="flex justify-center  gap-1">
+                                                {contact.tags && contact.tags.slice(0, 4).map((tag) => (
                                                     <Tooltip {...CustomTooltipProps} title={tag.name} key={tag.id}>
                                                         <span
-                                                            className="inline-block w-3 h-3 rounded-full"
+                                                            className="inline-block w-[10px] h-[10px] rounded-full"
                                                             style={{ backgroundColor: tag.color || '#9CA3AF' }}
                                                         ></span>
                                                     </Tooltip>
                                                 ))}
-                                                {contact.tags && contact.tags.length > 6 && (
-                                                    <Tooltip {...CustomTooltipProps} title={contact.tags.slice(6).map(t => t.name).join(", ")}>
-                                                        <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-semibold text-white rounded-full bg-gray-400 dark:bg-gray-600 select-none">
-                                                            +{contact.tags.length - 6}
+                                                {contact.tags && contact.tags.length > 4 && (
+                                                    <Tooltip {...CustomTooltipProps} title={contact.tags.slice(4).map(t => t.name).join(", ")}>
+                                                        <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-semibold text-white rounded-full bg-gray-400 dark:bg-gray-600 select-none">
+                                                            +{contact.tags.length - 4}
                                                         </span>
                                                     </Tooltip>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-2 py-4 text-center">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                        <td className="pl-3 pr-3 py-3 text-center w-[110px]">
+                                            <span className={`px-1.5 py-0.5 text-xs font-semibold rounded-full ${
                                                 contact.situation === 'Ativo' 
                                                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
                                                     : contact.situation === 'Inativo' 
@@ -729,11 +931,11 @@ const Contacts = () => {
                                                 {contact.situation || (contact.active ? 'Ativo' : 'Inativo')}
                                             </span>
                                         </td>
-                                        <td className="px-2 py-4 text-center">
-                                            <div className="flex items-center justify-center gap-2">
+                                        <td className="pl-3 pr-3 py-3 text-center w-[120px]">
+                                            <div className="flex items-center justify-center gap-1.5">
                                                 <Tooltip {...CustomTooltipProps} title="Enviar mensagem pelo WhatsApp">
                                                     <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
-                                                        <WhatsApp className="w-5 h-5" />
+                                                        <WhatsApp className="w-4 h-4" />
                                                     </button>
                                                 </Tooltip>
                                                 <Tooltip {...CustomTooltipProps} title="Editar contato">
@@ -762,15 +964,12 @@ const Contacts = () => {
                     {/* Paginação da Tabela */}
                     <nav className="flex items-center justify-between p-4" aria-label="Table navigation">
                         <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                            Página{" "}
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                                {pageNumber}-{pageNumber}
-                            </span>{" "}
-                            de{" "}
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                                {totalContacts}
-                            </span>{" "}
-                            Contatos
+                            Página {" "}
+                            <span className="font-semibold text-gray-900 dark:text-white">{pageNumber}</span>
+                            {" "} de {" "}
+                            <span className="font-semibold text-gray-900 dark:text-white">{totalPages}</span>
+                            {" "} • {" "}
+                            <span className="font-semibold text-gray-900 dark:text-white">{totalContacts}</span> contatos
                         </span>
                         <div className="flex items-center gap-2">
                             <span className="text-sm">Itens por página:</span>
@@ -785,6 +984,8 @@ const Contacts = () => {
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
                                 <option value={100}>100</option>
+                                <option value={500}>500</option>
+                                <option value={1000}>1000</option>
                             </select>
                         </div>
                         <ul className="inline-flex items-center -space-x-px">
@@ -830,27 +1031,27 @@ const Contacts = () => {
                 </div>
 
                 {/* Lista de Contatos (Mobile) */}
-                <div className="md:hidden flex flex-col gap-2 mt-4">
-                    {contacts.filter(contact => !contact.isGroup).map((contact) => (
-                        <div key={contact.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
+                <div className="min-[1200px]:hidden flex flex-col gap-1.5 mt-3 w-full max-w-md mx-auto">
+                    {sortedContacts.map((contact) => (
+                        <div key={contact.id} className="w-full bg-white dark:bg-gray-800 shadow rounded-lg p-3 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 overflow-hidden flex-shrink-0">
                                 <ContactAvatar 
                                     contact={contact}
-                                    className="w-10 h-10 rounded-full object-cover"
+                                    className="w-8 h-8 rounded-full object-cover"
                                 />
                             </div>
                             <div className="flex flex-col flex-1 min-w-0">
-                                <span className="font-medium text-gray-900 dark:text-white truncate" title={contact.name}>
-                                    {truncateText(contact.name, 25)}
+                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white truncate" title={contact.name}>
+                                    {truncateText(contact.name, 20)}
                                 </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 truncate" title={contact.email}>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate" title={contact.email}>
                                     {contact.email}
                                 </span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {formatPhoneNumber(contact.number)}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <button onClick={() => { setContactTicket(contact); setNewTicketModalOpen(true); }} className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"><WhatsApp className="w-5 h-5" /></button>
                                 <button onClick={() => hadleEditContact(contact.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"><Edit className="w-5 h-5" /></button>
                                 <button onClick={contact.active ? () => { setBlockingContact(contact); setConfirmOpen(true); } : () => { setUnBlockingContact(contact); setConfirmOpen(true); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">

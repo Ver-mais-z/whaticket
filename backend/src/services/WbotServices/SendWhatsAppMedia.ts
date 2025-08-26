@@ -4,6 +4,7 @@ import fs, { unlink, unlinkSync } from "fs";
 import { exec } from "child_process";
 import path from "path";
 import ffmpegPath from "@ffmpeg-installer/ffmpeg";
+import Jimp from "jimp";
 
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
@@ -37,31 +38,89 @@ const os = require("os");
 const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
 
 const processAudio = async (audio: string, companyId: string): Promise<string> => {
-  const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.mp3`;
-  
+  const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.ogg`;
+
   return new Promise((resolve, reject) => {
-    exec(
-      `${ffmpegPath.path} -i ${audio} -af "afftdn=nr=5:nf=-40, highpass=f=100, lowpass=f=4000, dynaudnorm=f=1000, aresample=44100, volume=1.0" -vn -ar 44100 -ac 2 -b:a 256k ${outputAudio} -y`,
-      (error, _stdout, _stderr) => {
-        if (error) reject(error);
-        resolve(outputAudio);
-      }
-    );
+    const inputQuoted = `"${audio}"`;
+    const outputQuoted = `"${outputAudio}"`;
+    // Conversão para OGG/Opus (PTT WhatsApp): mono, 16kHz, ~24kbps, VOIP
+    const cmd = `${ffmpegPath.path} -y -i ${inputQuoted} -map 0:a:0 -vn -ac 1 -ar 16000 -c:a libopus -b:a 24k -vbr on -compression_level 10 -application voip ${outputQuoted}`;
+    exec(cmd, (error, stdout, stderr) => {
+      if (stderr) console.warn('[ffmpeg][processAudio] stderr:', stderr);
+      if (error) return reject(error);
+      resolve(outputAudio);
+    });
+  });
+};
+
+// Processamento de imagem para padrão HD (mantendo qualidade alta)
+const processImage = async (
+  imagePath: string,
+  companyId: string,
+  mimeType?: string
+): Promise<{ output: string; mime: string }> => {
+  const companyFolder = path.join(publicFolder, `company${companyId}`);
+  try {
+    if (!fs.existsSync(companyFolder)) fs.mkdirSync(companyFolder, { recursive: true });
+
+    const img = await Jimp.read(imagePath);
+    const maxDim = 2048; // Limite "HD" alto mantendo qualidade
+    const { width, height } = img.bitmap as { width: number; height: number };
+    if (Math.max(width, height) > maxDim) {
+      img.scaleToFit(maxDim, maxDim, Jimp.RESIZE_BILINEAR);
+    }
+
+    // Por padrão, enviaremos JPEG de alta qualidade; mantém PNG se a origem é PNG
+    const outMimeIsPng = mimeType?.includes("png") === true;
+    const ts = new Date().getTime();
+    const output = path.join(companyFolder, outMimeIsPng ? `${ts}.png` : `${ts}.jpg`);
+
+    if (outMimeIsPng) {
+      await img.writeAsync(output);
+      return { output, mime: "image/png" };
+    } else {
+      img.quality(90); // JPEG qualidade alta
+      await img.writeAsync(output);
+      return { output, mime: "image/jpeg" };
+    }
+  } catch (e) {
+    // Em caso de falha, retorna a própria imagem original
+    return { output: imagePath, mime: mimeType || "image/jpeg" };
+  }
+};
+
+// Processamento de vídeo para padrão HD consistente (H.264/AAC em MP4)
+const processVideo = async (videoPath: string, companyId: string): Promise<string> => {
+  const companyFolder = path.join(publicFolder, `company${companyId}`);
+  if (!fs.existsSync(companyFolder)) fs.mkdirSync(companyFolder, { recursive: true });
+
+  const outputVideo = path.join(companyFolder, `${new Date().getTime()}.mp4`);
+  return new Promise((resolve, reject) => {
+    const inputQuoted = `"${videoPath}"`;
+    const outputQuoted = `"${outputVideo}"`;
+    const vf = `scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease`;
+    const cmd = `${ffmpegPath.path} -y -i ${inputQuoted} -vf "${vf}" -c:v libx264 -preset veryfast -crf 21 -movflags +faststart -c:a aac -b:a 128k ${outputQuoted}`;
+    exec(cmd, (error, stdout, stderr) => {
+      if (stderr) console.warn('[ffmpeg][processVideo] stderr:', stderr);
+      if (error) return reject(error);
+      resolve(outputVideo);
+    });
   });
 };
 
 
 const processAudioFile = async (audio: string, companyId: string): Promise<string> => {
-  const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.mp3`;
+  const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.ogg`;
   return new Promise((resolve, reject) => {
-    exec(
-      `${ffmpegPath.path} -i ${audio} -af "afftdn=nr=5:nf=-40, highpass=f=100, lowpass=f=4000, dynaudnorm=f=1000, aresample=44100, volume=1.0" -vn -ar 44100 -ac 2 -b:a 256k ${outputAudio} -y`,
-      (error, _stdout, _stderr) => {
-        if (error) reject(error);
-        // fs.unlinkSync(audio);
-        resolve(outputAudio);
-      }
-    );
+    const inputQuoted = `"${audio}"`;
+    const outputQuoted = `"${outputAudio}"`;
+    const cmd = `${ffmpegPath.path} -y -i ${inputQuoted} -map 0:a:0 -vn -ac 1 -ar 16000 -c:a libopus -b:a 24k -vbr on -compression_level 10 -application voip ${outputQuoted}`;
+    exec(cmd, (error, stdout, stderr) => {
+      if (stderr) console.warn('[ffmpeg][processAudioFile] stderr:', stderr);
+      if (error) return reject(error);
+      // fs.unlinkSync(audio);
+      resolve(outputAudio);
+    });
   });
 };
 
@@ -81,28 +140,30 @@ export const getMessageOptions = async (
     let options: AnyMessageContent;
 
     if (typeMessage === "video") {
-      options = {
-        video: fs.readFileSync(pathMedia),
-        caption: body ? body : null,
-        fileName: fileName
-        // gifPlayback: true
-      };
-    } else if (typeMessage === "audio") {
-      const typeAudio = true; //fileName.includes("audio-record-site");
-      const convert = await processAudio(pathMedia, companyId);
-      if (typeAudio) {
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype: "audio/mp4",
-          ptt: true
-        };
-      } else {
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype: typeAudio ? "audio/mp4" : mimeType,
-          ptt: true
-        };
+      let videoPath = pathMedia;
+      if (companyId) {
+        try {
+          videoPath = await processVideo(pathMedia, companyId);
+        } catch {
+          videoPath = pathMedia;
+        }
       }
+      options = {
+        video: fs.readFileSync(videoPath),
+        caption: body ? body : null,
+        fileName: fileName,
+        mimetype: "video/mp4"
+      };
+      if (videoPath !== pathMedia) {
+        try { unlinkSync(videoPath); } catch {}
+      }
+    } else if (typeMessage === "audio") {
+      const convert = await processAudio(pathMedia, companyId);
+      options = {
+        audio: fs.readFileSync(convert),
+        mimetype: "audio/ogg; codecs=opus",
+        ptt: true
+      };
     } else if (typeMessage === "document") {
       options = {
         document: fs.readFileSync(pathMedia),
@@ -118,10 +179,30 @@ export const getMessageOptions = async (
         mimetype: mimeType
       };
     } else {
-      options = {
-        image: fs.readFileSync(pathMedia),
-        caption: body ? body : null,
-      };
+      // imagem
+      if (mimeType.includes("gif")) {
+        options = {
+          image: fs.readFileSync(pathMedia),
+          caption: body ? body : null,
+          mimetype: "image/gif",
+          gifPlayback: true
+        };
+      } else if (companyId) {
+        const { output, mime: outMime } = await processImage(pathMedia, companyId, String(mimeType));
+        options = {
+          image: fs.readFileSync(output),
+          caption: body ? body : null,
+          mimetype: outMime
+        };
+        if (output !== pathMedia) {
+          try { unlinkSync(output); } catch {}
+        }
+      } else {
+        options = {
+          image: fs.readFileSync(pathMedia),
+          caption: body ? body : null,
+        };
+      }
     }
 
     return options;
@@ -151,36 +232,35 @@ const SendWhatsAppMedia = async ({
 
     // console.log(media.mimetype)
     if (typeMessage === "video") {
+      let videoPath = pathMedia;
+      if (companyId) {
+        try {
+          videoPath = await processVideo(pathMedia, companyId);
+        } catch {
+          videoPath = pathMedia;
+        }
+      }
       options = {
-        video: fs.readFileSync(pathMedia),
+        video: fs.readFileSync(videoPath),
         caption: bodyMedia,
         fileName: media.originalname.replace('/', '-'),
+        mimetype: "video/mp4",
         contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
       };
+      if (videoPath !== pathMedia) {
+        try { unlinkSync(videoPath); } catch {}
+      }
       bodyTicket = "🎥 Arquivo de vídeo"
     } else if (typeMessage === "audio") {
-      
-      const typeAudio = true; //media.originalname.includes("audio-record-site");
-      if (typeAudio) {
-        const convert = await processAudio(media.path, companyId);
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype: "audio/mpeg",
-          ptt: true,
-          caption: bodyMedia,
-          contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-        };
-        unlinkSync(convert);
-      } else {
-        const convert = await processAudio(media.path, companyId);
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype: "audio/mpeg",
-          ptt: true,
-          contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-        };
-        unlinkSync(convert);
-      }
+      const convert = await processAudio(media.path, companyId);
+      options = {
+        audio: fs.readFileSync(convert),
+        mimetype: "audio/ogg; codecs=opus",
+        ptt: true,
+        caption: bodyMedia,
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
+      };
+      unlinkSync(convert);
       bodyTicket = "🎵 Arquivo de áudio"
     } else if (typeMessage === "document" || typeMessage === "text") {
       options = {
@@ -211,13 +291,26 @@ const SendWhatsAppMedia = async ({
 
         };
       } else {
+        let outPath = pathMedia;
+        let outMime: string | undefined = undefined;
+        try {
+          const processed = await processImage(pathMedia, companyId, media.mimetype);
+          outPath = processed.output;
+          outMime = processed.mime;
+        } catch {
+          outPath = pathMedia;
+        }
         options = {
-          image: fs.readFileSync(pathMedia),
+          image: fs.readFileSync(outPath),
           caption: bodyMedia,
+          mimetype: outMime,
           contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
         };
+        if (outPath !== pathMedia) {
+          try { unlinkSync(outPath); } catch {}
+        }
       }
-      bodyTicket = "📎 Outros anexos"
+      bodyTicket = "🖼️ Imagem"
     }
 
     if (isPrivate === true) {

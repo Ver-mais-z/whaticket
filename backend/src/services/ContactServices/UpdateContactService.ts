@@ -161,10 +161,11 @@ const UpdateContactService = async ({
     await ContactWallet.bulkCreate(contactWallets);
   }
 
-  // Função auxiliar para converter strings vazias em null
+  // Função auxiliar para converter strings vazias/whitespace em null
   const emptyToNull = (value: any) => {
-    if (value === undefined) return null;
-    return value === '' ? '' : value;
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return value;
   };
 
   // Proteção de nome: preservar nome personalizado já válido

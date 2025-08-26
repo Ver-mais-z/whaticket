@@ -169,6 +169,10 @@ const Ticket = () => {
     setDrawerOpen(false);
   }, []);
 
+  const handleDrawerToggle = useCallback(() => {
+    setDrawerOpen(prev => !prev);
+  }, []);
+
   const renderMessagesList = () => {
     return (
       <>
@@ -208,7 +212,7 @@ const Ticket = () => {
               <TicketInfo
                 contact={contact}
                 ticket={ticket}
-                onClick={handleDrawerOpen}
+                onClick={handleDrawerToggle}
               />
             </div>
           )}

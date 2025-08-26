@@ -52,6 +52,9 @@ type IndexQuery = {
   pageNumber: string;
   contactTag: string;
   isGroup?: string;
+  limit?: string;
+  orderBy?: string;
+  order?: string;
 };
 
 type IndexGetContactQuery = {
@@ -155,7 +158,7 @@ export const importXls = async (req: Request, res: Response): Promise<Response> 
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { searchParam, pageNumber, contactTag: tagIdsStringified, isGroup } = req.query as IndexQuery;
+  const { searchParam, pageNumber, contactTag: tagIdsStringified, isGroup, limit, orderBy, order } = req.query as IndexQuery;
   // <<-- ALTERAÇÃO 1: Adicionado 'profile' para obter o perfil do usuário
   const { id: userId, companyId, profile } = req.user;
 
@@ -174,7 +177,10 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     tagsIds,
     isGroup,
     userId: Number(userId),
-    profile // <<-- ALTERAÇÃO 2: 'profile' é enviado para o serviço
+    profile, // <<-- ALTERAÇÃO 2: 'profile' é enviado para o serviço
+    limit,
+    orderBy,
+    order
   });
 
   return res.json({ contacts, count, hasMore });
@@ -237,20 +243,47 @@ export const getContact = async (
         const cleanDoc = value.replace(/\D/g, '');
         return [11, 14].includes(cleanDoc.length);
       }),
-    creditLimit: Yup.string().nullable(),
+    creditLimit: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .nullable(),
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
     situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable(),
-    email: Yup.string().email().nullable()
+    email: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .email()
+      .nullable()
   });
 
   try {
     await schema.validate(newContact);
   } catch (err: any) {
     throw new AppError(err.message);
+  }
+
+  // Normaliza email: evita null no model (que não permite) e remove espaços
+  if (newContact.hasOwnProperty("email")) {
+    if (newContact.email === null || newContact.email === undefined) {
+      newContact.email = "";
+    } else if (typeof newContact.email === "string") {
+      newContact.email = newContact.email.trim();
+    }
+  }
+
+  // Normaliza creditLimit: converte vazio/whitespace para null
+  if (newContact.hasOwnProperty("creditLimit")) {
+    if (typeof newContact.creditLimit === "string" && newContact.creditLimit.trim() === "") {
+      newContact.creditLimit = null as any;
+    }
   }
 
 
@@ -308,7 +341,13 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     number: Yup.string()
       .nullable()
       .matches(/^\d+$/, "Invalid number format. Only numbers is allowed."),
-    email: Yup.string().email().nullable(),
+    email: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .email()
+      .nullable(),
     cpfCnpj: Yup.string()
       .nullable()
       .test('cpf-cnpj', 'CPF/CNPJ inválido', (value) => {
@@ -316,7 +355,12 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         const cleanDoc = value.replace(/\D/g, '');
         return [11, 14].includes(cleanDoc.length);
       }),
-    creditLimit: Yup.string().nullable(),
+    creditLimit: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .nullable(),
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
@@ -329,6 +373,22 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
     await schema.validate(contactData);
   } catch (err: any) {
     throw new AppError(err.message);
+  }
+
+  // Normaliza email: evita null no model (que não permite) e remove espaços
+  if (contactData.hasOwnProperty("email")) {
+    if (contactData.email === null || contactData.email === undefined) {
+      contactData.email = "";
+    } else if (typeof contactData.email === "string") {
+      contactData.email = contactData.email.trim();
+    }
+  }
+
+  // Normaliza creditLimit: converte vazio/whitespace para null
+  if (contactData.hasOwnProperty("creditLimit")) {
+    if (typeof contactData.creditLimit === "string" && contactData.creditLimit.trim() === "") {
+      contactData.creditLimit = null as any;
+    }
   }
 
   const oldContact = await ShowContactService(contactId, companyId);

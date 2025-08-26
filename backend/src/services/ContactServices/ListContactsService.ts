@@ -18,6 +18,9 @@ interface Request {
   isGroup?: string;
   userId?: number;
   profile?: string;
+  limit?: string;
+  orderBy?: string;
+  order?: string;
 }
 
 interface Response {
@@ -33,7 +36,10 @@ const ListContactsService = async ({
                                      tagsIds,
                                      isGroup,
                                      userId,
-                                     profile
+                                     profile,
+                                     limit,
+                                     orderBy,
+                                     order
                                    }: Request): Promise<Response> => {
   let whereCondition: Filterable["where"] = {};
 
@@ -127,8 +133,19 @@ const ListContactsService = async ({
     }
   }
 
-  const limit = 100;
-  const offset = limit * (+pageNumber - 1);
+  const pageLimit = Number(limit) || 100;
+  const offset = pageLimit * (+pageNumber - 1);
+
+  // Ordenação segura (whitelist)
+  const allowedFields: Record<string, string> = {
+    name: "name",
+    number: "number",
+    email: "email",
+    city: "city",
+    status: "situation"
+  };
+  const field = orderBy && allowedFields[orderBy] ? allowedFields[orderBy] : "name";
+  const dir = (order && order.toUpperCase() === "DESC") ? "DESC" : "ASC";
 
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
@@ -158,8 +175,10 @@ const ListContactsService = async ({
         attributes: ["id", "name", "color"]
       },
     ],
+    distinct: true,
+    limit: pageLimit,
     offset,
-    order: [["name", "ASC"]]
+    order: [[field, dir]]
   });
 
   const hasMore = count > offset + contacts.length;

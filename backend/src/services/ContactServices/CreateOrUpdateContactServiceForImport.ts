@@ -53,6 +53,13 @@ const CreateOrUpdateContactServiceForImport = async ({
     finalFoundationDate = date;
   }
 
+  // helper: normalize creditLimit to null when empty/whitespace
+  const normalizeCreditLimit = (v: any): string | null => {
+    if (v === undefined || v === null) return null;
+    if (typeof v === 'string' && v.trim() === '') return null;
+    return String(v);
+  };
+
   const contactData = {
     name,
     number,
@@ -62,7 +69,7 @@ const CreateOrUpdateContactServiceForImport = async ({
     commandBot,
     extraInfo,
     companyId,
-    creditLimit: creditLimit ? String(creditLimit) : "",
+    creditLimit: normalizeCreditLimit(creditLimit),
     cpfCnpj: cpfCnpj ? String(cpfCnpj) : undefined,
     representativeCode: representativeCode ? String(representativeCode) : undefined,
     city,
@@ -89,7 +96,7 @@ const CreateOrUpdateContactServiceForImport = async ({
     const updatePayload: any = {
       ...contactData,
       situation: situation || contact.situation,
-      creditLimit: creditLimit ? String(creditLimit) : contact.creditLimit
+      creditLimit: normalizeCreditLimit(creditLimit) ?? contact.creditLimit
     };
 
     if (hasValidExistingName) {
