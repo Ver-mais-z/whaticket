@@ -84,10 +84,11 @@ const CreateContactService = async ({
 
   const { acceptAudioMessageContact } = settings;
 
-  // Função auxiliar para converter strings vazias em null
+  // Função auxiliar para converter strings vazias/whitespace em null
   const emptyToNull = (value: any) => {
-    if (value === undefined) return null;
-    return value === '' ? '' : value;
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return value;
   };
 
   // Definindo a interface para o contactData incluindo o userId como opcional
@@ -111,7 +112,7 @@ const CreateContactService = async ({
   const contactData: {
     name: string;
     number: string;
-    email: string | null;
+    email: string;
     acceptAudioMessage: boolean;
     active: boolean;
     extraInfo: ExtraInfo[];
@@ -129,7 +130,11 @@ const CreateContactService = async ({
   } = {
     name: name || '',
     number: number || '',
-    email: emptyToNull(email),
+    email: ((): string => {
+      if (email === undefined || email === null) return '';
+      const e = typeof email === 'string' ? email.trim() : String(email);
+      return e === '' ? '' : e;
+    })(),
     acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
     active: active !== undefined ? active : true,
     extraInfo: extraInfo || [],

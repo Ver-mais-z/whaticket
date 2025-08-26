@@ -52,7 +52,13 @@ export const count = async (req: Request, res:Response): Promise<Response> => {
   const schema = Yup.object().shape({
     name: Yup.string().required(),
     number: Yup.string().required(),
-    email: Yup.string().email().nullable(),
+    email: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === 'string' ? originalValue.trim() : originalValue;
+        return v === '' || v === undefined ? null : v;
+      })
+      .email()
+      .nullable(),
     cpfCnpj: Yup.string().nullable(),
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
@@ -60,13 +66,33 @@ export const count = async (req: Request, res:Response): Promise<Response> => {
     situation: Yup.string().oneOf(['Ativo', 'Inativo', 'Suspenso', 'Excluido']).nullable(),
     fantasyName: Yup.string().nullable(),
     foundationDate: Yup.date().nullable(),
-    creditLimit: Yup.string().nullable(),
+    creditLimit: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === 'string' ? originalValue.trim() : originalValue;
+        return v === '' || v === undefined ? null : v;
+      })
+      .nullable(),
   });
 
   try {
     await schema.validate(contactData);
   } catch (err: any) {
     throw new AppError(err.message);
+  }
+
+  // Normalização pós-validação: email como string vazia, creditLimit como null quando vazio
+  if (Object.prototype.hasOwnProperty.call(contactData, 'email')) {
+    if (contactData.email === null || contactData.email === undefined) {
+      contactData.email = '' as any;
+    } else if (typeof contactData.email === 'string') {
+      contactData.email = contactData.email.trim();
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(contactData, 'creditLimit')) {
+    if (typeof contactData.creditLimit === 'string' && contactData.creditLimit.trim() === '') {
+      contactData.creditLimit = null as any;
+    }
   }
 
   try {

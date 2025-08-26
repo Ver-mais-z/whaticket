@@ -237,7 +237,12 @@ export const getContact = async (
         const cleanDoc = value.replace(/\D/g, '');
         return [11, 14].includes(cleanDoc.length);
       }),
-    creditLimit: Yup.string().nullable(),
+    creditLimit: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .nullable(),
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
@@ -265,6 +270,13 @@ export const getContact = async (
       newContact.email = "";
     } else if (typeof newContact.email === "string") {
       newContact.email = newContact.email.trim();
+    }
+  }
+
+  // Normaliza creditLimit: converte vazio/whitespace para null
+  if (newContact.hasOwnProperty("creditLimit")) {
+    if (typeof newContact.creditLimit === "string" && newContact.creditLimit.trim() === "") {
+      newContact.creditLimit = null as any;
     }
   }
 
@@ -337,7 +349,12 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
         const cleanDoc = value.replace(/\D/g, '');
         return [11, 14].includes(cleanDoc.length);
       }),
-    creditLimit: Yup.string().nullable(),
+    creditLimit: Yup.string()
+      .transform((value, originalValue) => {
+        const v = typeof originalValue === "string" ? originalValue.trim() : originalValue;
+        return v === "" || v === undefined ? null : v;
+      })
+      .nullable(),
     representativeCode: Yup.string().nullable(),
     city: Yup.string().nullable(),
     instagram: Yup.string().nullable(),
@@ -358,6 +375,13 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
       contactData.email = "";
     } else if (typeof contactData.email === "string") {
       contactData.email = contactData.email.trim();
+    }
+  }
+
+  // Normaliza creditLimit: converte vazio/whitespace para null
+  if (contactData.hasOwnProperty("creditLimit")) {
+    if (typeof contactData.creditLimit === "string" && contactData.creditLimit.trim() === "") {
+      contactData.creditLimit = null as any;
     }
   }
 
